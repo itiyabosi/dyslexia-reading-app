@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>単語リスト管理</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>単語リスト管理</h1>
+  </header>
+
+  <div class="container">
+    <nav>
+      <a href="/">ホーム</a>
+      <a href="/word-lists">単語リスト管理</a>
+      <a href="/analysis">データ分析</a>
+    </nav>
+
+    <div class="card">
+      <h2>新しい単語リストを作成</h2>
+      <form id="addWordListForm">
+        <div class="form-group">
+          <label for="name">リスト名 *</label>
+          <input type="text" id="name" name="name" required>
+        </div>
+        <div class="form-group">
+          <label for="description">説明</label>
+          <textarea id="description" name="description" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">作成</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>単語リスト一覧</h2>
+      <% if (wordLists.length === 0) { %>
+        <p>まだ単語リストがありません。</p>
+      <% } else { %>
+        <% wordLists.forEach(wl => { %>
+          <div class="list-item">
+            <div>
+              <strong><%= wl.name %></strong><br>
+              <small style="color: #666;"><%= wl.description || '' %></small>
+            </div>
+            <div>
+              <a href="/word-lists/<%= wl.id %>" class="btn btn-primary">編集</a>
+            </div>
+          </div>
+        <% }) %>
+      <% } %>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('addWordListForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+
+      const response = await fetch('/api/word-lists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        alert('単語リストを作成しました');
+        location.reload();
+      }
+    });
+  </script>
+</body>
+</html>

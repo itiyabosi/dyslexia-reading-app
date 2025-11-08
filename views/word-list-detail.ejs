@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>単語リスト: <%= wordList.name %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>単語リスト: <%= wordList.name %></h1>
+  </header>
+
+  <div class="container">
+    <nav>
+      <a href="/">ホーム</a>
+      <a href="/word-lists">単語リスト管理</a>
+      <a href="/analysis">データ分析</a>
+    </nav>
+
+    <div class="card">
+      <h2>単語を追加</h2>
+      <form id="addWordForm">
+        <input type="hidden" name="word_list_id" value="<%= wordList.id %>">
+        <div class="form-group">
+          <label for="word_text">単語 *</label>
+          <input type="text" id="word_text" name="word_text" required placeholder="例: あめ">
+        </div>
+        <button type="submit" class="btn btn-primary">追加</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>登録されている単語 (<%= words.length %>語)</h2>
+      <% if (words.length === 0) { %>
+        <p>まだ単語が登録されていません。</p>
+      <% } else { %>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 15px;">
+          <% words.forEach(word => { %>
+            <div class="word-badge">
+              <span style="font-size: 18px; font-weight: bold;"><%= word.word_text %></span>
+              <button onclick="deleteWord(<%= word.id %>)" style="margin-left: 10px; background: none; border: none; color: red; cursor: pointer; font-size: 16px;">✕</button>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+
+    <div style="margin-top: 20px;">
+      <a href="/word-lists" class="btn btn-secondary">戻る</a>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('addWordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+
+      const response = await fetch('/api/words', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        location.reload();
+      }
+    });
+
+    async function deleteWord(id) {
+      if (!confirm('この単語を削除しますか？')) {
+        return;
+      }
+
+      const response = await fetch(`/api/words/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        location.reload();
+      }
+    }
+  </script>
+</body>
+</html>

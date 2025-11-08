@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>音韻認識テストアプリ - ホーム</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>音韻認識テストアプリ</h1>
+  </header>
+
+  <div class="container">
+    <nav>
+      <a href="/">ホーム</a>
+      <a href="/word-lists">単語リスト管理</a>
+      <a href="/analysis">データ分析</a>
+    </nav>
+
+    <div class="card">
+      <h2>児童の登録</h2>
+      <form id="addChildForm">
+        <div class="form-group">
+          <label for="name">名前 *</label>
+          <input type="text" id="name" name="name" required>
+        </div>
+        <div class="form-group">
+          <label for="grade">学年</label>
+          <input type="text" id="grade" name="grade" placeholder="例: 小学2年">
+        </div>
+        <div class="form-group">
+          <label for="birth_date">生年月日</label>
+          <input type="date" id="birth_date" name="birth_date">
+        </div>
+        <div class="form-group">
+          <label for="notes">備考</label>
+          <textarea id="notes" name="notes" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">登録</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>登録されている児童</h2>
+      <% if (children.length === 0) { %>
+        <p>まだ児童が登録されていません。</p>
+      <% } else { %>
+        <table>
+          <thead>
+            <tr>
+              <th>名前</th>
+              <th>学年</th>
+              <th>生年月日</th>
+              <th>登録日</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% children.forEach(child => { %>
+              <tr>
+                <td><%= child.name %></td>
+                <td><%= child.grade || '-' %></td>
+                <td><%= child.birth_date || '-' %></td>
+                <td><%= new Date(child.created_at).toLocaleDateString('ja-JP') %></td>
+                <td>
+                  <button class="btn btn-success" onclick="selectChildForTest(<%= child.id %>, '<%= child.name %>')">テスト開始</button>
+                  <button class="btn btn-danger" onclick="deleteChild(<%= child.id %>)">削除</button>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- テスト開始用モーダル（シンプル版） -->
+  <div id="testModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 10px; max-width: 500px; width: 90%;">
+      <h2>テストする単語リストを選択</h2>
+      <p style="margin: 15px 0;">児童: <strong id="selectedChildName"></strong></p>
+      <div id="wordListSelection"></div>
+      <div style="margin-top: 20px; text-align: right;">
+        <button class="btn btn-secondary" onclick="closeTestModal()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let selectedChildId = null;
+
+    // 児童登録フォーム
+    document.getElementById('addChildForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+
+      const response = await fetch('/api/children', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        alert('児童を登録しました');
+        location.reload();
+      }
+    });
+
+    // 児童削除
+    async function deleteChild(id) {
+      if (!confirm('本当に削除しますか？この児童のテスト記録もすべて削除されます。')) {
+        return;
+      }
+
+      const response = await fetch(`/api/children/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        alert('削除しました');
+        location.reload();
+      }
+    }
+
+    // テスト開始のための児童選択
+    async function selectChildForTest(childId, childName) {
+      selectedChildId = childId;
+      document.getElementById('selectedChildName').textContent = childName;
+
+      // 単語リストを取得して表示
+      const response = await fetch('/api/word-lists-simple');
+      if (!response.ok) {
+        // APIがまだない場合は仮のデータ
+        showWordListSelection([
+          { id: 1, name: '基本単語セット1', description: 'ひらがな・カタカナの基本単語' }
+        ]);
+      } else {
+        const wordLists = await response.json();
+        showWordListSelection(wordLists);
+      }
+
+      document.getElementById('testModal').style.display = 'block';
+    }
+
+    function showWordListSelection(wordLists) {
+      const container = document.getElementById('wordListSelection');
+      container.innerHTML = wordLists.map(wl => `
+        <div style="padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; background-color: #f9f9f9;" onclick="startTest(${wl.id})">
+          <strong>${wl.name}</strong><br>
+          <small style="color: #666;">${wl.description || ''}</small>
+        </div>
+      `).join('');
+    }
+
+    function startTest(wordListId) {
+      window.location.href = `/test/${selectedChildId}/${wordListId}`;
+    }
+
+    function closeTestModal() {
+      document.getElementById('testModal').style.display = 'none';
+      selectedChildId = null;
+    }
+  </script>
+</body>
+</html>

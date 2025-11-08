@@ -1,0 +1,19 @@
+{
+  "name": "dyslexia-reading-app",
+  "version": "1.0.0",
+  "description": "ディスレクシア児童の音韻認識テストアプリ",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^12.4.1",
+    "ejs": "^3.1.10",
+    "express": "^5.1.0"
+  }
+}

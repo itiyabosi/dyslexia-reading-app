@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>データ分析・成績表</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin: 20px 0;
+    }
+    .report-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+    .print-btn {
+      background-color: #9C27B0;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px;
+    }
+    .print-btn:hover {
+      background-color: #7B1FA2;
+    }
+    @media print {
+      nav, .print-btn { display: none; }
+      .card { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>データ分析・成績表</h1>
+  </header>
+
+  <div class="container">
+    <nav>
+      <a href="/">ホーム</a>
+      <a href="/word-lists">単語リスト管理</a>
+      <a href="/analysis">データ分析</a>
+    </nav>
+
+    <div class="card">
+      <h2>児童を選択</h2>
+      <% if (children.length === 0) { %>
+        <p>児童が登録されていません。</p>
+      <% } else { %>
+        <select id="childSelector" class="form-group" style="width: 100%; padding: 12px; font-size: 16px;">
+          <option value="">児童を選択してください</option>
+          <% children.forEach(child => { %>
+            <option value="<%= child.id %>" data-name="<%= child.name %>" data-grade="<%= child.grade || '' %>"><%= child.name %><%= child.grade ? ' (' + child.grade + ')' : '' %></option>
+          <% }) %>
+        </select>
+      <% } %>
+    </div>
+
+    <div id="statsArea" style="display: none;">
+
+      <div class="report-header">
+        <h2 style="margin: 0; font-size: 32px;" id="reportTitle">音韻認識テスト 成績表</h2>
+        <p style="margin: 10px 0 0 0; font-size: 18px;" id="reportSubtitle"></p>
+        <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;" id="reportDate"></p>
+      </div>
+
+      <div style="text-align: center; margin-bottom: 20px;">
+        <button class="print-btn" onclick="window.print()">📄 印刷・PDF保存</button>
+      </div>
+
+      <div class="card">
+        <h2>📊 総合統計</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <h3 id="totalTests">-</h3>
+            <p>テスト実施回数</p>
+          </div>
+          <div class="stat-card" style="background-color: #e8f5e9;">
+            <h3 id="successfulReads" style="color: #388E3C;">-</h3>
+            <p>読めた単語数</p>
+          </div>
+          <div class="stat-card" style="background-color: #fff3e0;">
+            <h3 id="avgTime" style="color: #F57C00;">-</h3>
+            <p>平均読み時間（秒）</p>
+          </div>
+          <div class="stat-card" style="background-color: #ffebee;">
+            <h3 id="misreadCount" style="color: #D32F2F;">-</h3>
+            <p>読み間違い回数</p>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card" style="background-color: #e1f5fe;">
+            <h3 id="successRate" style="color: #0277BD;">-</h3>
+            <p>正答率</p>
+          </div>
+          <div class="stat-card" style="background-color: #f3e5f5;">
+            <h3 id="fastestTime" style="color: #6A1B9A;">-</h3>
+            <p>最速読み時間（秒）</p>
+          </div>
+          <div class="stat-card" style="background-color: #fce4ec;">
+            <h3 id="slowestTime" style="color: #C2185B;">-</h3>
+            <p>最遅読み時間（秒）</p>
+          </div>
+          <div class="stat-card" style="background-color: #e8eaf6;">
+            <h3 id="testDays" style="color: #3949AB;">-</h3>
+            <p>テスト実施日数</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📈 成績推移（時系列）</h2>
+        <div class="chart-container">
+          <canvas id="progressChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>⏱️ 読み時間の推移</h2>
+        <div class="chart-container">
+          <canvas id="timeChart"></canvas>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="card">
+          <h2>✅ 正答率の内訳</h2>
+          <div class="chart-container">
+            <canvas id="successPieChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>📚 単語リスト別成績</h2>
+          <div class="chart-container">
+            <canvas id="wordListChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📋 詳細テスト履歴</h2>
+        <div id="recordsTable"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const childSelector = document.getElementById('childSelector');
+    const statsArea = document.getElementById('statsArea');
+    let charts = {}; // グラフオブジェクトを保持
+
+    childSelector.addEventListener('change', async (e) => {
+      const childId = e.target.value;
+
+      if (!childId) {
+        statsArea.style.display = 'none';
+        return;
+      }
+
+      const selectedOption = e.target.options[e.target.selectedIndex];
+      const childName = selectedOption.dataset.name;
+      const childGrade = selectedOption.dataset.grade;
+
+      // レポートヘッダー更新
+      document.getElementById('reportTitle').textContent = childName + ' さんの成績表';
+      document.getElementById('reportSubtitle').textContent = childGrade ? '（' + childGrade + '）' : '';
+      document.getElementById('reportDate').textContent = '作成日: ' + new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+
+      const response = await fetch('/api/analysis/' + childId);
+      const data = await response.json();
+
+      // 統計表示
+      document.getElementById('totalTests').textContent = data.stats.total_tests || 0;
+      document.getElementById('successfulReads').textContent = data.stats.successful_reads || 0;
+      document.getElementById('avgTime').textContent = data.stats.avg_time ? data.stats.avg_time.toFixed(2) : '-';
+      document.getElementById('misreadCount').textContent = data.stats.misread_count || 0;
+
+      // 追加統計
+      const successRate = data.stats.total_tests > 0
+        ? ((data.stats.successful_reads / data.stats.total_tests) * 100).toFixed(1)
+        : 0;
+      document.getElementById('successRate').textContent = successRate + '%';
+
+      // 最速・最遅時間の計算
+      const times = data.records.filter(r => r.reading_time_seconds).map(r => r.reading_time_seconds);
+      document.getElementById('fastestTime').textContent = times.length > 0 ? Math.min(...times).toFixed(2) : '-';
+      document.getElementById('slowestTime').textContent = times.length > 0 ? Math.max(...times).toFixed(2) : '-';
+
+      // テスト実施日数
+      const uniqueDays = new Set(data.records.map(r => r.test_date.split('T')[0]));
+      document.getElementById('testDays').textContent = uniqueDays.size;
+
+      // グラフ描画
+      drawCharts(data);
+
+      // テスト履歴テーブル
+      drawRecordsTable(data.records);
+
+      statsArea.style.display = 'block';
+    });
+
+    function drawCharts(data) {
+      // 既存のグラフを破棄
+      Object.values(charts).forEach(chart => chart.destroy());
+      charts = {};
+
+      // 1. 成績推移グラフ（折れ線）
+      const progressData = data.records.slice().reverse();
+      charts.progress = new Chart(document.getElementById('progressChart'), {
+        type: 'line',
+        data: {
+          labels: progressData.map((r, i) => (i + 1) + '回目'),
+          datasets: [{
+            label: '読めた（1）/ 読めなかった（0）',
+            data: progressData.map(r => r.could_read),
+            borderColor: '#4CAF50',
+            backgroundColor: 'rgba(76, 175, 80, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 1,
+              ticks: {
+                stepSize: 1,
+                callback: function(value) {
+                  return value === 1 ? '読めた' : '読めなかった';
+                }
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+
+      // 2. 読み時間の推移（折れ線）
+      const timeData = progressData.filter(r => r.reading_time_seconds);
+      charts.time = new Chart(document.getElementById('timeChart'), {
+        type: 'line',
+        data: {
+          labels: timeData.map((r, i) => (i + 1) + '回目'),
+          datasets: [{
+            label: '読み時間（秒）',
+            data: timeData.map(r => r.reading_time_seconds),
+            borderColor: '#FF9800',
+            backgroundColor: 'rgba(255, 152, 0, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+
+      // 3. 正答率の円グラフ
+      const successCount = data.stats.successful_reads || 0;
+      const failCount = (data.stats.total_tests || 0) - successCount;
+      charts.successPie = new Chart(document.getElementById('successPieChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['読めた', '読めなかった'],
+          datasets: [{
+            data: [successCount, failCount],
+            backgroundColor: ['#4CAF50', '#f44336']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }
+      });
+
+      // 4. 単語リスト別成績（棒グラフ）
+      const wordListStats = {};
+      data.records.forEach(r => {
+        if (!wordListStats[r.word_list_name]) {
+          wordListStats[r.word_list_name] = { total: 0, success: 0 };
+        }
+        wordListStats[r.word_list_name].total++;
+        if (r.could_read) wordListStats[r.word_list_name].success++;
+      });
+
+      const wordListLabels = Object.keys(wordListStats);
+      const wordListSuccessRates = wordListLabels.map(label =>
+        (wordListStats[label].success / wordListStats[label].total * 100).toFixed(1)
+      );
+
+      charts.wordList = new Chart(document.getElementById('wordListChart'), {
+        type: 'bar',
+        data: {
+          labels: wordListLabels,
+          datasets: [{
+            label: '正答率（%）',
+            data: wordListSuccessRates,
+            backgroundColor: '#2196F3'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100
+            }
+          }
+        }
+      });
+    }
+
+    function drawRecordsTable(records) {
+      const recordsTable = document.getElementById('recordsTable');
+
+      if (records.length === 0) {
+        recordsTable.innerHTML = '<p>まだテスト記録がありません。</p>';
+        return;
+      }
+
+      let tableHtml = '<table><thead><tr>' +
+        '<th>No.</th>' +
+        '<th>日時</th>' +
+        '<th>単語リスト</th>' +
+        '<th>単語</th>' +
+        '<th>結果</th>' +
+        '<th>読み時間（秒）</th>' +
+        '<th>読み間違い</th>' +
+        '<th>備考</th>' +
+        '</tr></thead><tbody>';
+
+      records.forEach((record, index) => {
+        const date = new Date(record.test_date);
+        const dateStr = date.toLocaleString('ja-JP');
+        const result = record.could_read ? '✓ 読めた' : '✗ 読めなかった';
+        const resultStyle = record.could_read ? 'color: green; font-weight: bold;' : 'color: red; font-weight: bold;';
+
+        tableHtml += '<tr>' +
+          '<td>' + (records.length - index) + '</td>' +
+          '<td>' + dateStr + '</td>' +
+          '<td>' + record.word_list_name + '</td>' +
+          '<td style="font-weight: bold; font-size: 18px;">' + record.word_text + '</td>' +
+          '<td style="' + resultStyle + '">' + result + '</td>' +
+          '<td>' + (record.reading_time_seconds ? record.reading_time_seconds.toFixed(2) : '-') + '</td>' +
+          '<td>' + (record.misread_as || '-') + '</td>' +
+          '<td>' + (record.notes || '-') + '</td>' +
+          '</tr>';
+      });
+
+      tableHtml += '</tbody></table>';
+      recordsTable.innerHTML = tableHtml;
+    }
+  </script>
+</body>
+</html>

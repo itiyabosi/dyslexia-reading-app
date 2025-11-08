@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>読み上げテスト - <%= child.name %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>読み上げテスト</h1>
+  </header>
+
+  <div class="container">
+    <div class="alert alert-info">
+      <strong>児童:</strong> <%= child.name %>
+      <strong style="margin-left: 20px;">単語リスト:</strong> <%= wordList.name %>
+    </div>
+
+    <div class="progress-info">
+      <span id="currentIndex">0</span> / <%= words.length %> 語
+    </div>
+
+    <div id="testArea">
+      <div class="test-word" id="wordDisplay">
+        準備中...
+      </div>
+
+      <div class="timer" id="timer">0.00秒</div>
+
+      <div class="test-controls">
+        <button id="startBtn" class="btn btn-success btn-large">スタート</button>
+        <button id="stopBtn" class="btn btn-primary btn-large" style="display: none;">ストップ</button>
+      </div>
+
+      <div class="result-form" id="resultForm" style="display: none;">
+        <h3>結果を記録</h3>
+
+        <div class="form-group">
+          <label>読めましたか？ *</label>
+          <div class="radio-group">
+            <label>
+              <input type="radio" name="could_read" value="1" checked>
+              読めた
+            </label>
+            <label>
+              <input type="radio" name="could_read" value="0">
+              読めなかった
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="misreadGroup" style="display: none;">
+          <label for="misread_as">読み間違えた内容</label>
+          <input type="text" id="misread_as" placeholder="例: あま">
+        </div>
+
+        <div class="form-group">
+          <label for="notes">備考</label>
+          <textarea id="notes" rows="2"></textarea>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="saveBtn" class="btn btn-success btn-large">記録して次へ</button>
+          <button id="skipBtn" class="btn btn-secondary">スキップ</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="completeArea" style="display: none; text-align: center;">
+      <h2 style="color: #4CAF50; margin-bottom: 20px;">テスト完了！</h2>
+      <p style="font-size: 18px; margin-bottom: 30px;">すべての単語のテストが終了しました。</p>
+      <a href="/" class="btn btn-primary btn-large">ホームに戻る</a>
+      <a href="/analysis" class="btn btn-success btn-large">データを見る</a>
+    </div>
+  </div>
+
+  <script>
+    const childId = <%= child.id %>;
+    const words = <%- JSON.stringify(words) %>;
+
+    let currentIndex = 0;
+    let startTime = null;
+    let timerInterval = null;
+    let currentReadingTime = 0;
+
+    const wordDisplay = document.getElementById('wordDisplay');
+    const timer = document.getElementById('timer');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const resultForm = document.getElementById('resultForm');
+    const testArea = document.getElementById('testArea');
+    const completeArea = document.getElementById('completeArea');
+    const currentIndexDisplay = document.getElementById('currentIndex');
+
+    // ラジオボタンの変更を監視
+    document.querySelectorAll('input[name="could_read"]').forEach(radio => {
+      radio.addEventListener('change', (e) => {
+        const misreadGroup = document.getElementById('misreadGroup');
+        if (e.target.value === '0') {
+          misreadGroup.style.display = 'block';
+        } else {
+          misreadGroup.style.display = 'none';
+          document.getElementById('misread_as').value = '';
+        }
+      });
+    });
+
+    function showCurrentWord() {
+      if (currentIndex >= words.length) {
+        testArea.style.display = 'none';
+        completeArea.style.display = 'block';
+        return;
+      }
+
+      currentIndexDisplay.textContent = currentIndex + 1;
+
+      // 単語を隠して準備状態にする
+      wordDisplay.textContent = '準備完了 - スタートボタンを押してください';
+      wordDisplay.style.color = '#999';
+
+      // リセット
+      timer.textContent = '0.00秒';
+      startBtn.style.display = 'inline-block';
+      stopBtn.style.display = 'none';
+      resultForm.style.display = 'none';
+      document.getElementById('misread_as').value = '';
+      document.getElementById('notes').value = '';
+      document.querySelectorAll('input[name="could_read"]')[0].checked = true;
+      document.getElementById('misreadGroup').style.display = 'none';
+    }
+
+    startBtn.addEventListener('click', () => {
+      // 単語を表示
+      const word = words[currentIndex];
+      wordDisplay.textContent = word.word_text;
+      wordDisplay.style.color = '#333';
+
+      // タイマー開始
+      startTime = Date.now();
+      startBtn.style.display = 'none';
+      stopBtn.style.display = 'inline-block';
+
+      timerInterval = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        timer.textContent = elapsed.toFixed(2) + '秒';
+      }, 10);
+    });
+
+    stopBtn.addEventListener('click', () => {
+      clearInterval(timerInterval);
+      currentReadingTime = (Date.now() - startTime) / 1000;
+      timer.textContent = currentReadingTime.toFixed(2) + '秒';
+
+      stopBtn.style.display = 'none';
+      resultForm.style.display = 'block';
+    });
+
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+      const couldRead = document.querySelector('input[name="could_read"]:checked').value;
+      const misreadAs = couldRead === '0' ? document.getElementById('misread_as').value : null;
+      const notes = document.getElementById('notes').value;
+
+      const data = {
+        child_id: childId,
+        word_id: words[currentIndex].id,
+        could_read: parseInt(couldRead),
+        reading_time_seconds: currentReadingTime,
+        misread_as: misreadAs,
+        notes: notes
+      };
+
+      const response = await fetch('/api/reading-records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        currentIndex++;
+        showCurrentWord();
+      } else {
+        alert('記録に失敗しました');
+      }
+    });
+
+    document.getElementById('skipBtn').addEventListener('click', () => {
+      if (confirm('この単語をスキップしますか？（記録されません）')) {
+        currentIndex++;
+        showCurrentWord();
+      }
+    });
+
+    // 初期表示
+    showCurrentWord();
+  </script>
+</body>
+</html>
