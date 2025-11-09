@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>フォント管理</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <h1>フォント管理</h1>
+    <nav>
+      <a href="/">ホーム</a>
+      <a href="/word-lists">単語リスト</a>
+      <a href="/analysis">データ分析</a>
+      <a href="/fonts" class="active">フォント管理</a>
+    </nav>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <h2>カスタムフォントの追加</h2>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="fontName">フォント名 *</label>
+          <input type="text" id="fontName" name="fontName" placeholder="例: MyCustomFont" required>
+        </div>
+
+        <div class="form-group">
+          <label for="fontFile">フォントファイル (.ttf, .otf, .woff, .woff2) *</label>
+          <input type="file" id="fontFile" name="fontFile" accept=".ttf,.otf,.woff,.woff2" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary">アップロード</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>フォント一覧</h2>
+      <div id="fontsList"></div>
+    </div>
+  </div>
+
+  <script>
+    console.log('[DEBUG] フォント管理画面読み込み');
+
+    // フォント一覧を取得して表示
+    async function loadFonts() {
+      console.log('[DEBUG] フォント一覧取得開始');
+
+      const response = await fetch('/api/fonts');
+      const fonts = await response.json();
+
+      console.log('[DEBUG] フォント一覧取得完了:', fonts.length, '件');
+
+      const fontsList = document.getElementById('fontsList');
+
+      if (fonts.length === 0) {
+        fontsList.innerHTML = '<p style="color: #999;">フォントが登録されていません</p>';
+        return;
+      }
+
+      let html = '<table class="table"><thead><tr><th>フォント名</th><th>種類</th><th>操作</th></tr></thead><tbody>';
+
+      fonts.forEach(font => {
+        html += `
+          <tr>
+            <td style="font-family: ${font.font_family};">${font.name}</td>
+            <td>
+              ${font.font_type === 'webfont' ? 'Webフォント' :
+                font.font_type === 'custom' ? 'カスタム' : 'システム'}
+            </td>
+            <td>
+              ${font.font_type === 'custom' ?
+                `<button class="btn btn-danger btn-small" onclick="deleteFont(${font.id}, '${font.name}')">削除</button>` :
+                '<span style="color: #999;">-</span>'}
+            </td>
+          </tr>
+        `;
+      });
+
+      html += '</tbody></table>';
+      fontsList.innerHTML = html;
+    }
+
+    // フォント削除
+    async function deleteFont(id, name) {
+      console.log('[DEBUG] フォント削除開始:', id, name);
+
+      if (!confirm(`フォント「${name}」を削除しますか？`)) {
+        return;
+      }
+
+      const response = await fetch(`/api/fonts/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        console.log('[SUCCESS] フォント削除完了:', name);
+        alert('フォントを削除しました');
+        loadFonts();
+      } else {
+        console.error('[ERROR] フォント削除失敗:', name);
+        alert('削除に失敗しました');
+      }
+    }
+
+    // フォントアップロード
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      console.log('[DEBUG] フォントアップロード開始');
+
+      const formData = new FormData();
+      formData.append('fontName', document.getElementById('fontName').value);
+      formData.append('fontFile', document.getElementById('fontFile').files[0]);
+
+      try {
+        const response = await fetch('/api/fonts/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          console.log('[SUCCESS] フォントアップロード完了:', result);
+          alert('フォントをアップロードしました');
+          document.getElementById('uploadForm').reset();
+          loadFonts();
+        } else {
+          console.error('[ERROR] フォントアップロード失敗:', result);
+          alert('アップロードに失敗しました: ' + result.message);
+        }
+      } catch (error) {
+        console.error('[ERROR] フォントアップロードエラー:', error);
+        alert('アップロードに失敗しました');
+      }
+    });
+
+    // 初期ロード
+    loadFonts();
+  </script>
+</body>
+</html>

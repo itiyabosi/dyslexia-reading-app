@@ -5,6 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>読み上げテスト - <%= child.name %></title>
   <link rel="stylesheet" href="/css/style.css">
+
+  <!-- Google Fonts: UDフォント -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic&family=BIZ+UDPMincho&family=Lexend:wght@400&display=swap" rel="stylesheet">
+
+  <!-- OpenDyslexic フォント -->
+  <link href="https://cdn.jsdelivr.net/npm/opendyslexic@3.0.0/opendyslexic-regular.min.css" rel="stylesheet">
+
+  <style>
+    /* カスタムフォントの@font-face定義 */
+    <% fonts.filter(f => f.font_type === 'custom').forEach(font => { %>
+    @font-face {
+      font-family: <%= font.font_family %>;
+      src: url('<%= font.file_path %>');
+    }
+    <% }); %>
+  </style>
 </head>
 <body>
   <header>
@@ -15,6 +33,17 @@
     <div class="alert alert-info">
       <strong>児童:</strong> <%= child.name %>
       <strong style="margin-left: 20px;">単語リスト:</strong> <%= wordList.name %>
+    </div>
+
+    <div class="form-group">
+      <label for="fontSelect">表示フォント</label>
+      <select id="fontSelect" style="font-size: 16px; padding: 8px; width: 100%; max-width: 400px;">
+        <% fonts.forEach((font, index) => { %>
+          <option value="<%= font.id %>" data-family="<%= font.font_family %>" <%= index === 0 ? 'selected' : '' %>>
+            <%= font.name %> (<%= font.font_type === 'webfont' ? 'Webフォント' : font.font_type === 'custom' ? 'カスタム' : 'システム' %>)
+          </option>
+        <% }); %>
+      </select>
     </div>
 
     <div class="progress-info">
@@ -83,6 +112,7 @@
     let startTime = null;
     let timerInterval = null;
     let currentReadingTime = 0;
+    let selectedFontId = null;
 
     const wordDisplay = document.getElementById('wordDisplay');
     const timer = document.getElementById('timer');
@@ -92,6 +122,23 @@
     const testArea = document.getElementById('testArea');
     const completeArea = document.getElementById('completeArea');
     const currentIndexDisplay = document.getElementById('currentIndex');
+    const fontSelect = document.getElementById('fontSelect');
+
+    // フォント選択の変更を反映
+    fontSelect.addEventListener('change', (e) => {
+      console.log('[DEBUG] フォント変更:', e.target.value);
+      const selectedOption = e.target.options[e.target.selectedIndex];
+      const fontFamily = selectedOption.getAttribute('data-family');
+      selectedFontId = parseInt(e.target.value);
+
+      wordDisplay.style.fontFamily = fontFamily;
+      console.log('[DEBUG] フォント適用:', fontFamily);
+    });
+
+    // 初期フォント設定
+    const initialOption = fontSelect.options[fontSelect.selectedIndex];
+    selectedFontId = parseInt(fontSelect.value);
+    wordDisplay.style.fontFamily = initialOption.getAttribute('data-family');
 
     // ラジオボタンの変更を監視
     document.querySelectorAll('input[name="could_read"]').forEach(radio => {
@@ -167,8 +214,11 @@
         could_read: parseInt(couldRead),
         reading_time_seconds: currentReadingTime,
         misread_as: misreadAs,
-        notes: notes
+        notes: notes,
+        font_id: selectedFontId
       };
+
+      console.log('[DEBUG] テスト結果送信:', data);
 
       const response = await fetch('/api/reading-records', {
         method: 'POST',
@@ -177,9 +227,11 @@
       });
 
       if (response.ok) {
+        console.log('[SUCCESS] テスト結果記録完了');
         currentIndex++;
         showCurrentWord();
       } else {
+        console.error('[ERROR] テスト結果記録失敗');
         alert('記録に失敗しました');
       }
     });

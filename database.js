@@ -38,6 +38,19 @@ function initDatabase() {
     )
   `);
 
+  // フォント管理
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS fonts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      font_family TEXT NOT NULL,
+      font_type TEXT NOT NULL, -- 'system', 'webfont', 'custom'
+      file_path TEXT, -- カスタムフォントの場合のみ
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   // 読み上げテスト記録
   db.exec(`
     CREATE TABLE IF NOT EXISTS reading_records (
@@ -49,8 +62,10 @@ function initDatabase() {
       reading_time_seconds REAL, -- 読むのにかかった秒数
       misread_as TEXT, -- 読み間違えた場合の内容
       notes TEXT,
+      font_id INTEGER, -- 使用したフォント
       FOREIGN KEY (child_id) REFERENCES children(id) ON DELETE CASCADE,
-      FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE
+      FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE,
+      FOREIGN KEY (font_id) REFERENCES fonts(id) ON DELETE SET NULL
     )
   `);
 
@@ -90,6 +105,31 @@ function insertSampleData() {
     });
 
     console.log('サンプルデータを投入しました');
+  }
+
+  // デフォルトフォントの投入
+  const checkFonts = db.prepare('SELECT COUNT(*) as count FROM fonts').get();
+
+  if (checkFonts.count === 0) {
+    const defaultFonts = [
+      { name: 'BIZ UDPゴシック', font_family: "'BIZ UDPGothic', sans-serif", font_type: 'webfont' },
+      { name: 'BIZ UDP明朝', font_family: "'BIZ UDPMincho', serif", font_type: 'webfont' },
+      { name: 'OpenDyslexic', font_family: "'OpenDyslexic', sans-serif", font_type: 'webfont' },
+      { name: 'Lexend', font_family: "'Lexend', sans-serif", font_type: 'webfont' },
+      { name: 'UD デジタル 教科書体 NK-R', font_family: "'UD デジタル 教科書体 NK-R', sans-serif", font_type: 'system' },
+      { name: 'Arial', font_family: 'Arial, sans-serif', font_type: 'system' },
+      { name: 'Verdana', font_family: 'Verdana, sans-serif', font_type: 'system' },
+      { name: 'Comic Sans MS', font_family: "'Comic Sans MS', cursive", font_type: 'system' },
+      { name: '游ゴシック', font_family: "'Yu Gothic', 'YuGothic', sans-serif", font_type: 'system' },
+      { name: 'メイリオ', font_family: 'Meiryo, sans-serif', font_type: 'system' }
+    ];
+
+    const insertFont = db.prepare('INSERT INTO fonts (name, font_family, font_type, file_path) VALUES (?, ?, ?, ?)');
+    defaultFonts.forEach(font => {
+      insertFont.run(font.name, font.font_family, font.font_type, null);
+    });
+
+    console.log('デフォルトフォントを登録しました');
   }
 }
 
