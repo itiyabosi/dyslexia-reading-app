@@ -16,6 +16,7 @@
       <a href="/">ホーム</a>
       <a href="/word-lists">単語リスト管理</a>
       <a href="/analysis">データ分析</a>
+      <a href="/fonts">フォント管理</a>
     </nav>
 
     <div class="card">
@@ -28,6 +29,22 @@
         </div>
         <button type="submit" class="btn btn-primary">追加</button>
       </form>
+    </div>
+
+    <div class="card">
+      <h2>ファイルから単語をインポート</h2>
+      <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+        PDF、Word文書から単語を自動抽出して追加します。<br>
+        改行・スペースで区切られた単語を自動的に認識します。
+      </p>
+      <form id="importFileForm" enctype="multipart/form-data">
+        <div class="form-group">
+          <label for="documentFile">ファイル (.pdf, .docx, .doc) *</label>
+          <input type="file" id="documentFile" name="documentFile" accept=".pdf,.docx,.doc" required>
+        </div>
+        <button type="submit" class="btn btn-success">ファイルから読み込む</button>
+      </form>
+      <div id="importStatus" style="margin-top: 15px;"></div>
     </div>
 
     <div class="card">
@@ -65,6 +82,45 @@
 
       if (response.ok) {
         location.reload();
+      }
+    });
+
+    // ファイルインポート
+    document.getElementById('importFileForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      console.log('[DEBUG] ファイルインポート開始');
+
+      const statusDiv = document.getElementById('importStatus');
+      statusDiv.innerHTML = '<p style="color: #2196F3;">読み込み中...</p>';
+
+      const formData = new FormData();
+      const fileInput = document.getElementById('documentFile');
+      formData.append('documentFile', fileInput.files[0]);
+
+      try {
+        const response = await fetch('/api/word-lists/<%= wordList.id %>/import', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          console.log('[SUCCESS] ファイルインポート完了:', result);
+          statusDiv.innerHTML = `
+            <p style="color: #4CAF50; font-weight: bold;">✓ ${result.count}個の単語を追加しました</p>
+            <p style="font-size: 14px; color: #666;">例: ${result.words.join(', ')}...</p>
+          `;
+          setTimeout(() => {
+            location.reload();
+          }, 2000);
+        } else {
+          console.error('[ERROR] ファイルインポート失敗:', result);
+          statusDiv.innerHTML = `<p style="color: #f44336;">✗ エラー: ${result.message}</p>`;
+        }
+      } catch (error) {
+        console.error('[ERROR] ファイルインポートエラー:', error);
+        statusDiv.innerHTML = `<p style="color: #f44336;">✗ エラーが発生しました</p>`;
       }
     });
 

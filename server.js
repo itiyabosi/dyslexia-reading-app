@@ -2,6 +2,8 @@ const express = require('express');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
 const { db, initDatabase, insertSampleData } = require('./database');
 
 const app = express();
@@ -112,6 +114,107 @@ app.delete('/api/words/:id', (req, res) => {
   const stmt = db.prepare('DELETE FROM words WHERE id = ?');
   stmt.run(req.params.id);
   res.json({ success: true });
+});
+
+// 単語ファイルアップロード用のMulter設定
+const documentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir);
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const documentUpload = multer({
+  storage: documentStorage,
+  fileFilter: (req, file, cb) => {
+    const allowedExtensions = ['.pdf', '.docx', '.doc'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedExtensions.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('PDF、Word文書 (.pdf, .docx, .doc) のみアップロード可能です'));
+    }
+  }
+});
+
+// 文書から単語を抽出してリストに追加するAPI
+app.post('/api/word-lists/:id/import', documentUpload.single('documentFile'), async (req, res) => {
+  console.log('[DEBUG] 文書ファイルアップロード開始:', req.file);
+
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'ファイルがアップロードされていません' });
+  }
+
+  const wordListId = req.params.id;
+  const filePath = req.file.path;
+  const fileExt = path.extname(req.file.originalname).toLowerCase();
+
+  try {
+    let text = '';
+
+    // ファイル形式に応じてテキスト抽出
+    if (fileExt === '.pdf') {
+      console.log('[DEBUG] PDFファイルをパース中');
+      const dataBuffer = fs.readFileSync(filePath);
+      const pdfData = await pdfParse(dataBuffer);
+      text = pdfData.text;
+    } else if (fileExt === '.docx' || fileExt === '.doc') {
+      console.log('[DEBUG] Wordファイルをパース中');
+      const result = await mammoth.extractRawText({ path: filePath });
+      text = result.value;
+    }
+
+    console.log('[DEBUG] 抽出されたテキスト長:', text.length);
+
+    // テキストから単語を抽出（改行・スペースで区切り、空白や記号のみの行を除外）
+    const words = text
+      .split(/[\r\n\s]+/)
+      .map(word => word.trim())
+      .filter(word => word.length > 0 && /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF\w]+/.test(word)); // ひらがな、カタカナ、漢字、英数字を含む
+
+    console.log('[DEBUG] 抽出された単語数:', words.length);
+
+    if (words.length === 0) {
+      // アップロードファイル削除
+      fs.unlinkSync(filePath);
+      return res.status(400).json({ success: false, message: '単語が抽出できませんでした' });
+    }
+
+    // 最大のdisplay_orderを取得
+    const maxOrder = db.prepare('SELECT MAX(display_order) as max FROM words WHERE word_list_id = ?').get(wordListId);
+    let displayOrder = (maxOrder.max || 0) + 1;
+
+    // 単語をデータベースに追加
+    const insertStmt = db.prepare('INSERT INTO words (word_list_id, word_text, display_order) VALUES (?, ?, ?)');
+    const insertTransaction = db.transaction((wordsList) => {
+      for (const word of wordsList) {
+        insertStmt.run(wordListId, word, displayOrder);
+        displayOrder++;
+      }
+    });
+
+    insertTransaction(words);
+
+    // アップロードファイル削除
+    fs.unlinkSync(filePath);
+
+    console.log('[SUCCESS] 単語インポート完了:', words.length, '件');
+    res.json({ success: true, count: words.length, words: words.slice(0, 10) }); // 最初の10件のみ返す
+  } catch (error) {
+    console.error('[ERROR] 文書パースエラー:', error);
+    // エラー時はファイルを削除
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    res.status(500).json({ success: false, message: 'ファイルの読み込みに失敗しました: ' + error.message });
+  }
 });
 
 // ======== フォント管理 ========

@@ -12,6 +12,9 @@ node_modules/
 # カスタムフォント（ユーザーアップロード）
 public/fonts/
 
+# アップロードファイル（一時保存）
+uploads/
+
 # ログファイル
 npm-debug.log*
 yarn-debug.log*
