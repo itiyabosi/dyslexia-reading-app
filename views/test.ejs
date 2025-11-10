@@ -50,6 +50,12 @@
       <span id="currentIndex">0</span> / <%= words.length %> 語
     </div>
 
+    <div style="text-align: center; margin-bottom: 10px;">
+      <small style="color: #666;">
+        ⌨️ キーボードショートカット: <strong>スペースキー</strong> でスタート/ストップ、<strong>Enter</strong> で記録
+      </small>
+    </div>
+
     <div id="testArea">
       <div class="test-word" id="wordDisplay">
         準備中...
@@ -58,8 +64,8 @@
       <div class="timer" id="timer">0.00秒</div>
 
       <div class="test-controls">
-        <button id="startBtn" class="btn btn-success btn-large">スタート</button>
-        <button id="stopBtn" class="btn btn-primary btn-large" style="display: none;">ストップ</button>
+        <button id="startBtn" class="btn btn-success btn-large">スタート (スペースキー)</button>
+        <button id="stopBtn" class="btn btn-primary btn-large" style="display: none;">ストップ (スペースキー)</button>
       </div>
 
       <div class="result-form" id="resultForm" style="display: none;">
@@ -90,7 +96,7 @@
         </div>
 
         <div style="display: flex; gap: 10px; justify-content: center;">
-          <button id="saveBtn" class="btn btn-success btn-large">記録して次へ</button>
+          <button id="saveBtn" class="btn btn-success btn-large">記録して次へ (Enter)</button>
           <button id="skipBtn" class="btn btn-secondary">スキップ</button>
         </div>
       </div>
@@ -240,6 +246,36 @@
       if (confirm('この単語をスキップしますか？（記録されません）')) {
         currentIndex++;
         showCurrentWord();
+      }
+    });
+
+    // キーボードショートカット
+    document.addEventListener('keydown', (e) => {
+      console.log('[DEBUG] キー押下:', e.key, 'スタート表示:', startBtn.style.display, 'ストップ表示:', stopBtn.style.display);
+
+      // スペースキー: スタート/ストップ切り替え
+      if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault(); // スクロール防止
+
+        if (startBtn.style.display !== 'none') {
+          // スタートボタンが表示されている場合
+          console.log('[DEBUG] スペースキーでスタート');
+          startBtn.click();
+        } else if (stopBtn.style.display !== 'none') {
+          // ストップボタンが表示されている場合
+          console.log('[DEBUG] スペースキーでストップ');
+          stopBtn.click();
+        }
+      }
+
+      // Enterキー: 結果フォームが表示されている場合は保存
+      if (e.key === 'Enter' && resultForm.style.display !== 'none') {
+        e.preventDefault();
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) {
+          console.log('[DEBUG] Enterキーで保存');
+          saveBtn.click();
+        }
       }
     });
 
