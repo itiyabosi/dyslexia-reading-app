@@ -177,12 +177,69 @@ dyslexia-reading-app/
     └── analysis.ejs       # データ分析画面
 ```
 
+## Google Sheets連携（オプション）
+
+テスト結果を自動的にGoogle スプレッドシートに保存できます。
+
+### セットアップ手順
+
+#### 1. Google Cloud Consoleでプロジェクトを作成
+
+1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
+2. 新しいプロジェクトを作成（または既存のプロジェクトを選択）
+
+#### 2. Google Sheets APIを有効化
+
+1. 「APIとサービス」→「ライブラリ」に移動
+2. 「Google Sheets API」を検索して有効化
+
+#### 3. サービスアカウントを作成
+
+1. 「APIとサービス」→「認証情報」に移動
+2. 「認証情報を作成」→「サービスアカウント」を選択
+3. サービスアカウント名を入力（例: `dyslexia-app-sheets`）
+4. 作成後、サービスアカウントをクリック
+5. 「キー」タブ→「鍵を追加」→「新しい鍵を作成」→「JSON」を選択
+6. JSONファイルがダウンロードされます
+
+#### 4. Google スプレッドシートを準備
+
+1. 新しいGoogle スプレッドシートを作成
+2. シート名を「テスト記録」に変更
+3. スプレッドシートのURLから **スプレッドシートID** をコピー
+   - URL例: `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`
+4. 「共有」ボタンをクリックし、サービスアカウントのメールアドレス（JSONファイル内の`client_email`）を **編集者** として追加
+
+#### 5. 環境変数を設定
+
+1. プロジェクトディレクトリに `.env` ファイルを作成
+2. ダウンロードしたJSONファイルから以下の情報を `.env` に追加:
+
+```bash
+# Google Sheets連携設定
+GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYour Private Key Here\n-----END PRIVATE KEY-----\n"
+GOOGLE_SHEET_ID=your-spreadsheet-id-here
+```
+
+**注意**: `GOOGLE_PRIVATE_KEY` は改行が `\n` として表現されている必要があります。
+
+#### 6. アプリを再起動
+
+設定後、アプリを再起動すると、テスト結果が自動的にGoogle スプレッドシートに保存されます。
+
+### スプレッドシートの列構成
+
+| 記録日時 | 児童名 | 学年 | 単語 | 単語リスト | 読めたか | 読み時間（秒） | 読み間違い | 備考 | フォント |
+|---------|--------|------|------|-----------|---------|-------------|-----------|------|---------|
+
 ## 注意事項
 
 - データベースファイル（reading_data.db）は自動的に作成されます
 - サンプルデータとして「基本単語セット1」が初回起動時に自動作成されます
 - 児童を削除すると、その児童のすべてのテスト記録も削除されます
 - 単語リストを削除すると、その中の単語とテスト記録も削除されます
+- Google Sheets連携はオプションです。設定しなくてもアプリは正常に動作します
 
 ## ライセンス
 

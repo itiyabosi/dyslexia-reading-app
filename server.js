@@ -5,6 +5,8 @@ const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const { db, initDatabase, insertSampleData } = require('./database');
+const { saveReadingRecordToSheets } = require('./googleSheets');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -301,7 +303,7 @@ app.get('/test/:childId/:wordListId', (req, res) => {
 });
 
 // テスト結果記録API
-app.post('/api/reading-records', (req, res) => {
+app.post('/api/reading-records', async (req, res) => {
   const { child_id, word_id, could_read, reading_time_seconds, misread_as, notes, font_id } = req.body;
 
   console.log('[DEBUG] テスト結果記録:', { child_id, word_id, could_read, reading_time_seconds, font_id });
@@ -314,6 +316,37 @@ app.post('/api/reading-records', (req, res) => {
   const result = stmt.run(child_id, word_id, could_read, reading_time_seconds, misread_as, notes, font_id);
 
   console.log('[SUCCESS] テスト結果記録完了:', result.lastInsertRowid);
+
+  // Google Sheetsにも保存（追加情報を取得して送信）
+  try {
+    const recordDetails = db.prepare(`
+      SELECT
+        c.name as child_name,
+        c.grade as child_grade,
+        w.word_text,
+        wl.name as word_list_name,
+        f.name as font_name
+      FROM children c
+      JOIN words w ON w.id = ?
+      JOIN word_lists wl ON w.word_list_id = wl.id
+      LEFT JOIN fonts f ON f.id = ?
+      WHERE c.id = ?
+    `).get(word_id, font_id, child_id);
+
+    if (recordDetails) {
+      await saveReadingRecordToSheets({
+        ...recordDetails,
+        could_read,
+        reading_time_seconds,
+        misread_as,
+        notes
+      });
+    }
+  } catch (error) {
+    console.error('[ERROR] Google Sheets保存エラー:', error.message);
+    // エラーが発生してもローカルDBには保存されているので続行
+  }
+
   res.json({ success: true, id: result.lastInsertRowid });
 });
 
