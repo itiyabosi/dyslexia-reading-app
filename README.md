@@ -184,21 +184,26 @@ dyslexia-reading-app/
 
 ### 🚀 簡単セットアップ（推奨）
 
-**1つのコマンドで自動設定できます:**
+**たった2ステップで完了:**
 
+#### ステップ1: サービスアカウントキーをダウンロード
+1. [Firebase Console](https://console.firebase.google.com/) を開く
+2. プロジェクトを選択（なければ作成）
+3. ⚙️（設定）→「プロジェクトの設定」→「サービスアカウント」
+4. 「新しい秘密鍵の生成」をクリック
+5. JSONファイルがダウンロードされます
+
+#### ステップ2: セットアップコマンドを実行
 ```bash
-npm run setup:firebase
+npm run setup:firebase <ダウンロードしたJSONファイルのパス>
 ```
 
-このスクリプトが以下を自動で行います:
-- Firebaseへのログイン
-- プロジェクトの選択
-- サービスアカウントキーの設定
-- 環境変数ファイル（.env）の作成
+**例:**
+```bash
+npm run setup:firebase ~/Downloads/my-project-firebase-adminsdk-xxxxx.json
+```
 
-**必要なもの:**
-- Firebase CLI（`npm install -g firebase-tools`）
-- Googleアカウント
+これだけで`.env`ファイルが自動生成され、Firebase連携が有効になります！
 
 ---
 
