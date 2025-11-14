@@ -157,6 +157,7 @@ http://localhost:3001
 dyslexia-reading-app/
 ├── server.js              # Expressサーバー
 ├── database.js            # データベース初期化とスキーマ定義
+├── firebaseService.js     # Firebase連携モジュール
 ├── package.json           # プロジェクト設定
 ├── reading_data.db        # SQLiteデータベース（自動生成）
 ├── .gitignore             # Git除外設定
@@ -177,61 +178,73 @@ dyslexia-reading-app/
     └── analysis.ejs       # データ分析画面
 ```
 
-## Google Sheets連携（オプション）
+## Firebase連携（オプション）
 
-テスト結果を自動的にGoogle スプレッドシートに保存できます。
+テスト結果を自動的にFirebase Firestoreに保存できます。
 
 ### セットアップ手順
 
-#### 1. Google Cloud Consoleでプロジェクトを作成
+#### 1. Firebaseプロジェクトを作成
 
-1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
-2. 新しいプロジェクトを作成（または既存のプロジェクトを選択）
+1. [Firebase Console](https://console.firebase.google.com/) にアクセス
+2. 「プロジェクトを追加」をクリックして新しいプロジェクトを作成
+3. プロジェクト名を入力（例: `dyslexia-reading-app`）
 
-#### 2. Google Sheets APIを有効化
+#### 2. Firestoreを有効化
 
-1. 「APIとサービス」→「ライブラリ」に移動
-2. 「Google Sheets API」を検索して有効化
+1. Firebaseコンソールで「Firestore Database」を選択
+2. 「データベースを作成」をクリック
+3. セキュリティルールは「本番環境モード」を選択（後で編集可能）
+4. ロケーションを選択（例: `asia-northeast1`（東京））
 
-#### 3. サービスアカウントを作成
+#### 3. サービスアカウントキーを作成
 
-1. 「APIとサービス」→「認証情報」に移動
-2. 「認証情報を作成」→「サービスアカウント」を選択
-3. サービスアカウント名を入力（例: `dyslexia-app-sheets`）
-4. 作成後、サービスアカウントをクリック
-5. 「キー」タブ→「鍵を追加」→「新しい鍵を作成」→「JSON」を選択
-6. JSONファイルがダウンロードされます
+1. Firebaseコンソールで ⚙️（設定）→「プロジェクトの設定」をクリック
+2. 「サービスアカウント」タブを選択
+3. 「新しい秘密鍵の生成」ボタンをクリック
+4. JSONファイルがダウンロードされます（**重要**: このファイルは安全に保管してください）
 
-#### 4. Google スプレッドシートを準備
-
-1. 新しいGoogle スプレッドシートを作成
-2. シート名を「テスト記録」に変更
-3. スプレッドシートのURLから **スプレッドシートID** をコピー
-   - URL例: `https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/edit`
-4. 「共有」ボタンをクリックし、サービスアカウントのメールアドレス（JSONファイル内の`client_email`）を **編集者** として追加
-
-#### 5. 環境変数を設定
+#### 4. 環境変数を設定
 
 1. プロジェクトディレクトリに `.env` ファイルを作成
-2. ダウンロードしたJSONファイルから以下の情報を `.env` に追加:
+2. ダウンロードしたJSONファイルの内容を1行にまとめて設定:
 
 ```bash
-# Google Sheets連携設定
-GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@your-project.iam.gserviceaccount.com
-GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYour Private Key Here\n-----END PRIVATE KEY-----\n"
-GOOGLE_SHEET_ID=your-spreadsheet-id-here
+# Firebase連携設定
+FIREBASE_SERVICE_ACCOUNT='{"type":"service_account","project_id":"your-project-id","private_key_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","client_email":"...","client_id":"...","auth_uri":"...","token_uri":"...","auth_provider_x509_cert_url":"...","client_x509_cert_url":"..."}'
 ```
 
-**注意**: `GOOGLE_PRIVATE_KEY` は改行が `\n` として表現されている必要があります。
+**ヒント**: JSONファイル全体の内容をコピーして、シングルクォートで囲んで貼り付けてください。
 
-#### 6. アプリを再起動
+#### 5. アプリを再起動
 
-設定後、アプリを再起動すると、テスト結果が自動的にGoogle スプレッドシートに保存されます。
+設定後、アプリを再起動すると、テスト結果が自動的にFirestore（`reading_records` コレクション）に保存されます。
 
-### スプレッドシートの列構成
+### Firestoreのデータ構造
 
-| 記録日時 | 児童名 | 学年 | 単語 | 単語リスト | 読めたか | 読み時間（秒） | 読み間違い | 備考 | フォント |
-|---------|--------|------|------|-----------|---------|-------------|-----------|------|---------|
+**コレクション**: `reading_records`
+
+各ドキュメントには以下のフィールドが保存されます:
+
+| フィールド名 | 型 | 説明 |
+|------------|-----|------|
+| child_name | string | 児童名 |
+| child_grade | string | 学年 |
+| word_text | string | 単語 |
+| word_list_name | string | 単語リスト名 |
+| could_read | boolean | 読めたか（true/false） |
+| reading_time_seconds | number | 読み時間（秒） |
+| misread_as | string | 読み間違えた内容 |
+| notes | string | 備考 |
+| font_name | string | 使用フォント |
+| created_at | timestamp | 記録日時 |
+
+### Firebaseコンソールでデータを確認
+
+1. [Firebase Console](https://console.firebase.google.com/) にアクセス
+2. プロジェクトを選択
+3. 「Firestore Database」を開く
+4. `reading_records` コレクションでテスト結果を確認できます
 
 ## 注意事項
 
@@ -239,7 +252,8 @@ GOOGLE_SHEET_ID=your-spreadsheet-id-here
 - サンプルデータとして「基本単語セット1」が初回起動時に自動作成されます
 - 児童を削除すると、その児童のすべてのテスト記録も削除されます
 - 単語リストを削除すると、その中の単語とテスト記録も削除されます
-- Google Sheets連携はオプションです。設定しなくてもアプリは正常に動作します
+- Firebase連携はオプションです。設定しなくてもアプリは正常に動作します
+- テスト結果はローカルのSQLiteデータベースに必ず保存され、Firebase設定がある場合は追加でFirestoreにも保存されます
 
 ## ライセンス
 

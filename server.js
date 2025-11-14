@@ -5,7 +5,7 @@ const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const { db, initDatabase, insertSampleData } = require('./database');
-const { saveReadingRecordToSheets } = require('./googleSheets');
+const { saveReadingRecordToFirebase } = require('./firebaseService');
 require('dotenv').config();
 
 const app = express();
@@ -317,7 +317,7 @@ app.post('/api/reading-records', async (req, res) => {
 
   console.log('[SUCCESS] テスト結果記録完了:', result.lastInsertRowid);
 
-  // Google Sheetsにも保存（追加情報を取得して送信）
+  // Firebaseにも保存（追加情報を取得して送信）
   try {
     const recordDetails = db.prepare(`
       SELECT
@@ -334,7 +334,7 @@ app.post('/api/reading-records', async (req, res) => {
     `).get(word_id, font_id, child_id);
 
     if (recordDetails) {
-      await saveReadingRecordToSheets({
+      await saveReadingRecordToFirebase({
         ...recordDetails,
         could_read,
         reading_time_seconds,
@@ -343,7 +343,7 @@ app.post('/api/reading-records', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('[ERROR] Google Sheets保存エラー:', error.message);
+    console.error('[ERROR] Firebase保存エラー:', error.message);
     // エラーが発生してもローカルDBには保存されているので続行
   }
 
