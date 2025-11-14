@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "setup:firebase": "./setup-firebase.sh"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +18,6 @@
     "ejs": "^3.1.10",
     "express": "^5.1.0",
     "firebase-admin": "^13.6.0",
-    "googleapis": "^166.0.0",
     "mammoth": "^1.11.0",
     "multer": "^2.0.2",
     "pdf-parse": "^2.4.5"

@@ -182,7 +182,29 @@ dyslexia-reading-app/
 
 テスト結果を自動的にFirebase Firestoreに保存できます。
 
-### セットアップ手順
+### 🚀 簡単セットアップ（推奨）
+
+**1つのコマンドで自動設定できます:**
+
+```bash
+npm run setup:firebase
+```
+
+このスクリプトが以下を自動で行います:
+- Firebaseへのログイン
+- プロジェクトの選択
+- サービスアカウントキーの設定
+- 環境変数ファイル（.env）の作成
+
+**必要なもの:**
+- Firebase CLI（`npm install -g firebase-tools`）
+- Googleアカウント
+
+---
+
+### 手動セットアップ手順
+
+自動セットアップがうまくいかない場合は、以下の手順で手動設定できます。
 
 #### 1. Firebaseプロジェクトを作成
 
