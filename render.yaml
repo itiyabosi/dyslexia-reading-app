@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: dyslexia-reading-app
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+    # 永続ディスク設定（SQLiteデータベース用）
+    disk:
+      name: data
+      mountPath: /opt/render/project/src
+      sizeGB: 1
