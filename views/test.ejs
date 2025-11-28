@@ -169,10 +169,10 @@
       currentIndexDisplay.textContent = currentIndex + 1;
 
       // 単語を隠して準備状態にする
-      wordDisplay.textContent = '準備完了 - スタートボタンを押してください';
+      wordDisplay.textContent = '';
       wordDisplay.style.color = '#999';
 
-      console.log('[DEBUG] 準備完了 - 次の単語:', words[currentIndex].word_text);
+      console.log('[DEBUG] 次の単語:', words[currentIndex].word_text);
 
       // リセット
       timer.textContent = '0.00秒';
