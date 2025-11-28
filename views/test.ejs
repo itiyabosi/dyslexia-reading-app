@@ -16,12 +16,20 @@
 
   <style>
     /* カスタムフォントの@font-face定義 */
-    <% fonts.filter(f => f.font_type === 'custom').forEach(font => { %>
+    <% fonts.filter(f => f.font_type === 'custom').forEach(font => {
+      // font_familyから最初のフォント名を抽出（シングルクォートを除去）
+      const fontName = font.font_family.split(',')[0].replace(/['"]/g, '').trim();
+    %>
     @font-face {
-      font-family: <%= font.font_family %>;
+      font-family: '<%= fontName %>';
       src: url('<%= font.file_path %>');
     }
     <% }); %>
+
+    /* 単語表示エリアに強制的にフォントを適用 */
+    #wordDisplay {
+      font-family: inherit !important;
+    }
   </style>
 </head>
 <body>
@@ -39,11 +47,14 @@
       <label for="fontSelect">表示フォント</label>
       <select id="fontSelect" style="font-size: 16px; padding: 8px; width: 100%; max-width: 400px;">
         <% fonts.forEach((font, index) => { %>
-          <option value="<%= font.id %>" data-family="<%= font.font_family %>" <%= index === 0 ? 'selected' : '' %>>
+          <option value="<%= font.id %>" data-family="<%= font.font_family %>" style="font-family: <%= font.font_family %>;" <%= index === 0 ? 'selected' : '' %>>
             <%= font.name %> (<%= font.font_type === 'webfont' ? 'Webフォント' : font.font_type === 'custom' ? 'カスタム' : 'システム' %>)
           </option>
         <% }); %>
       </select>
+      <div id="fontPreview" style="margin-top: 10px; padding: 15px; background-color: #f0f0f0; border-radius: 5px; font-size: 24px; text-align: center; display: none;">
+        あいうえお ABC 123
+      </div>
     </div>
 
     <div class="progress-info">
@@ -130,6 +141,8 @@
     const currentIndexDisplay = document.getElementById('currentIndex');
     const fontSelect = document.getElementById('fontSelect');
 
+    const fontPreview = document.getElementById('fontPreview');
+
     // フォント選択の変更を反映
     fontSelect.addEventListener('change', (e) => {
       console.log('[DEBUG] フォント変更:', e.target.value);
@@ -137,14 +150,41 @@
       const fontFamily = selectedOption.getAttribute('data-family');
       selectedFontId = parseInt(e.target.value);
 
-      wordDisplay.style.fontFamily = fontFamily;
-      console.log('[DEBUG] フォント適用:', fontFamily);
+      // フォントを適用
+      applyFont(fontFamily);
+
+      // プレビュー表示
+      showFontPreview(fontFamily);
     });
+
+    // フォントを適用する関数
+    function applyFont(fontFamily) {
+      // 既存のスタイルをクリア
+      wordDisplay.style.fontFamily = '';
+
+      // 少し待ってから適用（レンダリング確実化）
+      setTimeout(() => {
+        wordDisplay.style.fontFamily = fontFamily;
+        console.log('[DEBUG] フォント適用:', fontFamily);
+        console.log('[DEBUG] 適用後のfontFamily:', window.getComputedStyle(wordDisplay).fontFamily);
+      }, 10);
+    }
+
+    // フォントプレビューを表示
+    function showFontPreview(fontFamily) {
+      fontPreview.style.fontFamily = fontFamily;
+      fontPreview.style.display = 'block';
+
+      // 3秒後に自動で非表示
+      setTimeout(() => {
+        fontPreview.style.display = 'none';
+      }, 3000);
+    }
 
     // 初期フォント設定
     const initialOption = fontSelect.options[fontSelect.selectedIndex];
     selectedFontId = parseInt(fontSelect.value);
-    wordDisplay.style.fontFamily = initialOption.getAttribute('data-family');
+    applyFont(initialOption.getAttribute('data-family'));
 
     // ラジオボタンの変更を監視
     document.querySelectorAll('input[name="could_read"]').forEach(radio => {
