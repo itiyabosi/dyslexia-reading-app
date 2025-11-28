@@ -133,6 +133,25 @@
         </div>
       </div>
 
+      <div class="card">
+        <h2>📊 読み時間の改善トレンド（5回移動平均）</h2>
+        <div class="chart-container">
+          <canvas id="improvementTrendChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>🎯 単語別 速度改善ランキング</h2>
+        <p style="color: #666; margin-bottom: 15px;">各単語の初回と最新の読み時間を比較（2回以上テストした単語のみ）</p>
+        <div id="wordImprovementTable"></div>
+      </div>
+
+      <div class="card" style="background-color: #fff3e0;">
+        <h2>⚠️ 改善が必要な単語（要注意リスト）</h2>
+        <p style="color: #666; margin-bottom: 15px;">改善が見られない、または読み時間が長くなっている単語</p>
+        <div id="needsImprovementTable"></div>
+      </div>
+
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
         <div class="card">
           <h2>✅ 正答率の内訳</h2>
@@ -208,6 +227,9 @@
       // テスト履歴テーブル
       drawRecordsTable(data.records);
 
+      // 新しい分析機能
+      drawImprovementAnalysis(data.records);
+
       statsArea.style.display = 'block';
     });
 
@@ -277,6 +299,64 @@
           }
         }
       });
+
+      // 2-2. 読み時間の改善トレンド（5回移動平均）
+      if (timeData.length >= 5) {
+        const movingAverage = [];
+        for (let i = 4; i < timeData.length; i++) {
+          const sum = timeData.slice(i - 4, i + 1).reduce((acc, r) => acc + r.reading_time_seconds, 0);
+          movingAverage.push(sum / 5);
+        }
+
+        charts.improvementTrend = new Chart(document.getElementById('improvementTrendChart'), {
+          type: 'line',
+          data: {
+            labels: movingAverage.map((_, i) => (i + 5) + '回目'),
+            datasets: [{
+              label: '5回移動平均（秒）',
+              data: movingAverage,
+              borderColor: '#9C27B0',
+              backgroundColor: 'rgba(156, 39, 176, 0.1)',
+              tension: 0.4,
+              fill: true,
+              borderWidth: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  afterLabel: function(context) {
+                    const index = context.dataIndex;
+                    if (index > 0) {
+                      const improvement = ((movingAverage[index - 1] - movingAverage[index]) / movingAverage[index - 1] * 100);
+                      return improvement > 0
+                        ? `前回より ${improvement.toFixed(1)}% 改善`
+                        : `前回より ${Math.abs(improvement).toFixed(1)}% 悪化`;
+                    }
+                    return '';
+                  }
+                }
+              }
+            }
+          }
+        });
+      } else {
+        // データが少ない場合はメッセージ表示
+        const canvas = document.getElementById('improvementTrendChart');
+        const ctx = canvas.getContext('2d');
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = '#999';
+        ctx.textAlign = 'center';
+        ctx.fillText('5回以上のテストデータが必要です', canvas.width / 2, canvas.height / 2);
+      }
 
       // 3. 正答率の円グラフ
       const successCount = data.stats.successful_reads || 0;
@@ -378,6 +458,171 @@
 
       tableHtml += '</tbody></table>';
       recordsTable.innerHTML = tableHtml;
+    }
+
+    function drawImprovementAnalysis(records) {
+      // 単語ごとにデータをグループ化
+      const wordData = {};
+
+      records.forEach(record => {
+        if (!record.reading_time_seconds) return;
+
+        if (!wordData[record.word_text]) {
+          wordData[record.word_text] = [];
+        }
+        wordData[record.word_text].push({
+          time: record.reading_time_seconds,
+          date: record.test_date,
+          could_read: record.could_read
+        });
+      });
+
+      // 各単語の改善度を計算（2回以上テストした単語のみ）
+      const improvements = [];
+      Object.keys(wordData).forEach(word => {
+        const tests = wordData[word];
+        if (tests.length >= 2) {
+          // 日付順にソート
+          tests.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+          const firstTime = tests[0].time;
+          const lastTime = tests[tests.length - 1].time;
+          const improvementPercent = ((firstTime - lastTime) / firstTime * 100);
+          const avgTime = tests.reduce((sum, t) => sum + t.time, 0) / tests.length;
+          const successRate = tests.filter(t => t.could_read).length / tests.length * 100;
+
+          improvements.push({
+            word,
+            firstTime,
+            lastTime,
+            improvementPercent,
+            improvementSeconds: firstTime - lastTime,
+            testCount: tests.length,
+            avgTime,
+            successRate
+          });
+        }
+      });
+
+      // 改善度でソート（改善が大きい順）
+      improvements.sort((a, b) => b.improvementPercent - a.improvementPercent);
+
+      // 単語別改善ランキング表示
+      drawWordImprovementTable(improvements);
+
+      // 改善が必要な単語（改善度が低い、または悪化している）
+      const needsImprovement = improvements.filter(w => w.improvementPercent < 10).slice(0, 10);
+      drawNeedsImprovementTable(needsImprovement);
+    }
+
+    function drawWordImprovementTable(improvements) {
+      const container = document.getElementById('wordImprovementTable');
+
+      if (improvements.length === 0) {
+        container.innerHTML = '<p style="color: #999;">2回以上テストした単語がありません。</p>';
+        return;
+      }
+
+      let tableHtml = '<table><thead><tr>' +
+        '<th>順位</th>' +
+        '<th>単語</th>' +
+        '<th>初回（秒）</th>' +
+        '<th>最新（秒）</th>' +
+        '<th>改善度</th>' +
+        '<th>短縮時間</th>' +
+        '<th>テスト回数</th>' +
+        '<th>平均時間</th>' +
+        '<th>正答率</th>' +
+        '</tr></thead><tbody>';
+
+      improvements.forEach((item, index) => {
+        const improvementStyle = item.improvementPercent > 0
+          ? 'color: green; font-weight: bold;'
+          : 'color: red; font-weight: bold;';
+
+        const improvementText = item.improvementPercent > 0
+          ? `↓ ${item.improvementPercent.toFixed(1)}%`
+          : `↑ ${Math.abs(item.improvementPercent).toFixed(1)}%`;
+
+        const shortenText = item.improvementSeconds > 0
+          ? `−${item.improvementSeconds.toFixed(2)}秒`
+          : `+${Math.abs(item.improvementSeconds).toFixed(2)}秒`;
+
+        tableHtml += '<tr>' +
+          '<td>' + (index + 1) + '</td>' +
+          '<td style="font-weight: bold; font-size: 16px;">' + item.word + '</td>' +
+          '<td>' + item.firstTime.toFixed(2) + '</td>' +
+          '<td>' + item.lastTime.toFixed(2) + '</td>' +
+          '<td style="' + improvementStyle + '">' + improvementText + '</td>' +
+          '<td style="' + improvementStyle + '">' + shortenText + '</td>' +
+          '<td>' + item.testCount + '</td>' +
+          '<td>' + item.avgTime.toFixed(2) + '</td>' +
+          '<td>' + item.successRate.toFixed(0) + '%</td>' +
+          '</tr>';
+      });
+
+      tableHtml += '</tbody></table>';
+      container.innerHTML = tableHtml;
+    }
+
+    function drawNeedsImprovementTable(needsImprovement) {
+      const container = document.getElementById('needsImprovementTable');
+
+      if (needsImprovement.length === 0) {
+        container.innerHTML = '<p style="color: green; font-weight: bold;">✓ すべての単語で良好な改善が見られます！</p>';
+        return;
+      }
+
+      let tableHtml = '<table><thead><tr>' +
+        '<th>単語</th>' +
+        '<th>状況</th>' +
+        '<th>初回（秒）</th>' +
+        '<th>最新（秒）</th>' +
+        '<th>変化</th>' +
+        '<th>テスト回数</th>' +
+        '<th>正答率</th>' +
+        '<th>推奨アクション</th>' +
+        '</tr></thead><tbody>';
+
+      needsImprovement.forEach(item => {
+        let status, statusStyle, action;
+
+        if (item.improvementPercent < -10) {
+          status = '⚠️ 悪化';
+          statusStyle = 'background-color: #ffebee; color: #c62828; font-weight: bold;';
+          action = '重点的な練習が必要';
+        } else if (item.improvementPercent < 0) {
+          status = '⚠️ わずかに悪化';
+          statusStyle = 'background-color: #fff3e0; color: #e65100; font-weight: bold;';
+          action = '追加練習を推奨';
+        } else if (item.improvementPercent < 5) {
+          status = '△ ほぼ変化なし';
+          statusStyle = 'background-color: #fffde7; color: #f57f17;';
+          action = '継続的な練習';
+        } else {
+          status = '△ わずかに改善';
+          statusStyle = 'background-color: #f1f8e9; color: #558b2f;';
+          action = 'さらなる練習';
+        }
+
+        const changeText = item.improvementPercent > 0
+          ? `${item.improvementPercent.toFixed(1)}% 改善`
+          : `${Math.abs(item.improvementPercent).toFixed(1)}% 悪化`;
+
+        tableHtml += '<tr>' +
+          '<td style="font-weight: bold; font-size: 16px;">' + item.word + '</td>' +
+          '<td style="' + statusStyle + '">' + status + '</td>' +
+          '<td>' + item.firstTime.toFixed(2) + '</td>' +
+          '<td>' + item.lastTime.toFixed(2) + '</td>' +
+          '<td>' + changeText + '</td>' +
+          '<td>' + item.testCount + '</td>' +
+          '<td>' + item.successRate.toFixed(0) + '%</td>' +
+          '<td>' + action + '</td>' +
+          '</tr>';
+      });
+
+      tableHtml += '</tbody></table>';
+      container.innerHTML = tableHtml;
     }
   </script>
 </body>
