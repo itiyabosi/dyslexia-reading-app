@@ -26,6 +26,11 @@
     }
     <% }); %>
 
+    /* ページ全体にフォントを適用 */
+    body {
+      font-family: inherit !important;
+    }
+
     /* 単語表示エリアに強制的にフォントを適用 */
     #wordDisplay {
       font-family: inherit !important;
@@ -160,13 +165,18 @@
     // フォントを適用する関数
     function applyFont(fontFamily) {
       // 既存のスタイルをクリア
+      document.body.style.fontFamily = '';
       wordDisplay.style.fontFamily = '';
 
       // 少し待ってから適用（レンダリング確実化）
       setTimeout(() => {
+        // ページ全体にフォントを適用
+        document.body.style.fontFamily = fontFamily;
+        // 単語表示エリアにも明示的に適用
         wordDisplay.style.fontFamily = fontFamily;
-        console.log('[DEBUG] フォント適用:', fontFamily);
-        console.log('[DEBUG] 適用後のfontFamily:', window.getComputedStyle(wordDisplay).fontFamily);
+        console.log('[DEBUG] フォント適用（全体）:', fontFamily);
+        console.log('[DEBUG] Body fontFamily:', window.getComputedStyle(document.body).fontFamily);
+        console.log('[DEBUG] WordDisplay fontFamily:', window.getComputedStyle(wordDisplay).fontFamily);
       }, 10);
     }
 
