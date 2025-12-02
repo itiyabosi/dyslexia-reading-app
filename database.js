@@ -23,6 +23,7 @@ function migrateDatabase() {
   const tableInfo = db.prepare("PRAGMA table_info(children)").all();
   const hasBirthDate = tableInfo.some(col => col.name === 'birth_date');
   const hasEnrollmentYear = tableInfo.some(col => col.name === 'enrollment_year');
+  const hasBirthYear = tableInfo.some(col => col.name === 'birth_year');
 
   // 旧スキーマ（birth_dateあり、enrollment_year/monthなし）の場合、マイグレーション実行
   if (hasBirthDate && !hasEnrollmentYear && tableInfo.length > 0) {
@@ -34,6 +35,8 @@ function migrateDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         grade TEXT,
+        birth_year INTEGER,
+        birth_month INTEGER,
         enrollment_year INTEGER,
         enrollment_month INTEGER,
         notes TEXT,
@@ -55,6 +58,14 @@ function migrateDatabase() {
 
     console.log('マイグレーション完了');
   }
+
+  // birth_year/birth_month カラムがない場合は追加
+  if (tableInfo.length > 0 && !hasBirthYear && hasEnrollmentYear) {
+    console.log('birth_year と birth_month カラムを追加中...');
+    db.exec('ALTER TABLE children ADD COLUMN birth_year INTEGER');
+    db.exec('ALTER TABLE children ADD COLUMN birth_month INTEGER');
+    console.log('カラム追加完了');
+  }
 }
 
 // データベース初期化
@@ -65,6 +76,8 @@ function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       grade TEXT,
+      birth_year INTEGER,
+      birth_month INTEGER,
       enrollment_year INTEGER,
       enrollment_month INTEGER,
       notes TEXT,

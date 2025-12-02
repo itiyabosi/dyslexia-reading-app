@@ -109,9 +109,9 @@ app.get('/', (req, res) => {
 
 // 児童登録API
 app.post('/api/children', (req, res) => {
-  const { name, grade, enrollment_year, enrollment_month, notes } = req.body;
-  const stmt = db.prepare('INSERT INTO children (name, grade, enrollment_year, enrollment_month, notes) VALUES (?, ?, ?, ?, ?)');
-  const result = stmt.run(name, grade, enrollment_year || null, enrollment_month || null, notes);
+  const { name, grade, birth_year, birth_month, enrollment_year, enrollment_month, notes } = req.body;
+  const stmt = db.prepare('INSERT INTO children (name, grade, birth_year, birth_month, enrollment_year, enrollment_month, notes) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  const result = stmt.run(name, grade, birth_year || null, birth_month || null, enrollment_year || null, enrollment_month || null, notes);
   res.json({ success: true, id: result.lastInsertRowid });
 });
 
