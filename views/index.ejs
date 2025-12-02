@@ -30,7 +30,7 @@
           <input type="text" id="name" name="name" required>
         </div>
         <div class="form-group">
-          <label for="grade">学年</label>
+          <label for="grade">学年 / 年齢（生年月から自動計算されます）</label>
           <select id="grade" name="grade">
             <option value="">選択してください</option>
             <option value="小学1年">小学1年</option>
@@ -45,11 +45,28 @@
             <option value="高校1年">高校1年</option>
             <option value="高校2年">高校2年</option>
             <option value="高校3年">高校3年</option>
+            <option value="19歳">19歳</option>
+            <option value="20歳">20歳</option>
+            <option value="21歳">21歳</option>
+            <option value="22歳">22歳</option>
+            <option value="23歳">23歳</option>
+            <option value="24歳">24歳</option>
+            <option value="25歳">25歳</option>
+            <option value="26歳">26歳</option>
+            <option value="27歳">27歳</option>
+            <option value="28歳">28歳</option>
+            <option value="29歳">29歳</option>
+            <option value="30歳">30歳</option>
+            <option value="31歳">31歳</option>
+            <option value="32歳">32歳</option>
+            <option value="33歳">33歳</option>
+            <option value="34歳">34歳</option>
+            <option value="35歳">35歳</option>
           </select>
         </div>
         <div class="form-group">
           <label for="birth_year">生年</label>
-          <input type="number" id="birth_year" name="birth_year" placeholder="例: 2010" min="2000" max="2025">
+          <input type="number" id="birth_year" name="birth_year" placeholder="例: 2010" min="1990" max="2025">
         </div>
         <div class="form-group">
           <label for="birth_month">生月</label>
@@ -149,6 +166,76 @@
 
   <script>
     let selectedChildId = null;
+
+    // 生年月から学年または年齢を自動計算する関数
+    function calculateGradeFromBirthDate(birthYear, birthMonth) {
+      if (!birthYear || !birthMonth) return '';
+
+      const today = new Date();
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1; // 0-11を1-12に変換
+
+      // 現在の年度を計算（4月始まり）
+      let schoolYear = currentYear;
+      if (currentMonth < 4) {
+        schoolYear = currentYear - 1;
+      }
+
+      // 生まれた年度を計算（4月1日以前生まれは前年度扱い）
+      let birthSchoolYear = parseInt(birthYear);
+      if (parseInt(birthMonth) < 4) {
+        birthSchoolYear = birthYear - 1;
+      }
+
+      // 学年年齢を計算（小学1年生 = 6歳）
+      const gradeAge = schoolYear - birthSchoolYear;
+
+      // 学年マッピング
+      const gradeMap = {
+        6: '小学1年',
+        7: '小学2年',
+        8: '小学3年',
+        9: '小学4年',
+        10: '小学5年',
+        11: '小学6年',
+        12: '中学1年',
+        13: '中学2年',
+        14: '中学3年',
+        15: '高校1年',
+        16: '高校2年',
+        17: '高校3年'
+      };
+
+      // 高校3年以降は年齢表示
+      if (gradeAge >= 18) {
+        return `${gradeAge}歳`;
+      }
+
+      return gradeMap[gradeAge] || '';
+    }
+
+    // 生年・生月の入力が変更されたら学年を自動設定
+    function updateGradeAutomatically() {
+      const birthYear = document.getElementById('birth_year').value;
+      const birthMonth = document.getElementById('birth_month').value;
+      const gradeSelect = document.getElementById('grade');
+
+      const calculatedGrade = calculateGradeFromBirthDate(birthYear, birthMonth);
+
+      if (calculatedGrade) {
+        // 計算された学年をセット
+        for (let i = 0; i < gradeSelect.options.length; i++) {
+          if (gradeSelect.options[i].value === calculatedGrade) {
+            gradeSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
+    // 生年・生月フィールドにイベントリスナーを追加
+    document.getElementById('birth_year').addEventListener('change', updateGradeAutomatically);
+    document.getElementById('birth_month').addEventListener('change', updateGradeAutomatically);
 
     // 児童登録フォーム
     document.getElementById('addChildForm').addEventListener('submit', async (e) => {
