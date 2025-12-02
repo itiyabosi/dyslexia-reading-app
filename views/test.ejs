@@ -164,6 +164,13 @@
 
     // フォントを適用する関数
     function applyFont(fontFamily) {
+      // データベースから来たfont_familyにはシングルクォートが含まれているので除去
+      // 例: "'BIZ UDPGothic', sans-serif" → "BIZ UDPGothic, sans-serif"
+      const cleanedFontFamily = fontFamily.replace(/'/g, '');
+
+      console.log('[DEBUG] 元のfontFamily:', fontFamily);
+      console.log('[DEBUG] クリーン後のfontFamily:', cleanedFontFamily);
+
       // 既存のスタイルをクリア
       document.body.style.fontFamily = '';
       wordDisplay.style.fontFamily = '';
@@ -171,10 +178,10 @@
       // 少し待ってから適用（レンダリング確実化）
       setTimeout(() => {
         // ページ全体にフォントを適用
-        document.body.style.fontFamily = fontFamily;
+        document.body.style.fontFamily = cleanedFontFamily;
         // 単語表示エリアにも明示的に適用
-        wordDisplay.style.fontFamily = fontFamily;
-        console.log('[DEBUG] フォント適用（全体）:', fontFamily);
+        wordDisplay.style.fontFamily = cleanedFontFamily;
+        console.log('[DEBUG] フォント適用（全体）:', cleanedFontFamily);
         console.log('[DEBUG] Body fontFamily:', window.getComputedStyle(document.body).fontFamily);
         console.log('[DEBUG] WordDisplay fontFamily:', window.getComputedStyle(wordDisplay).fontFamily);
       }, 10);
@@ -182,7 +189,8 @@
 
     // フォントプレビューを表示
     function showFontPreview(fontFamily) {
-      fontPreview.style.fontFamily = fontFamily;
+      const cleanedFontFamily = fontFamily.replace(/'/g, '');
+      fontPreview.style.fontFamily = cleanedFontFamily;
       fontPreview.style.display = 'block';
 
       // 3秒後に自動で非表示
