@@ -5,7 +5,7 @@ const multer = require('multer');
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
-const { db, initDatabase, insertSampleData } = require('./database');
+const { db, migrateDatabase, initDatabase, insertSampleData } = require('./database');
 const { saveReadingRecordToFirebase } = require('./firebaseService');
 require('dotenv').config();
 
@@ -37,8 +37,9 @@ const upload = multer({
   }
 });
 
-// データベース初期化
+// データベース初期化（マイグレーション含む）
 initDatabase();
+migrateDatabase();
 insertSampleData();
 
 // ミドルウェア設定
@@ -108,9 +109,9 @@ app.get('/', (req, res) => {
 
 // 児童登録API
 app.post('/api/children', (req, res) => {
-  const { name, grade, birth_date, notes } = req.body;
-  const stmt = db.prepare('INSERT INTO children (name, grade, birth_date, notes) VALUES (?, ?, ?, ?)');
-  const result = stmt.run(name, grade, birth_date, notes);
+  const { name, grade, enrollment_year, enrollment_month, notes } = req.body;
+  const stmt = db.prepare('INSERT INTO children (name, grade, enrollment_year, enrollment_month, notes) VALUES (?, ?, ?, ?, ?)');
+  const result = stmt.run(name, grade, enrollment_year || null, enrollment_month || null, notes);
   res.json({ success: true, id: result.lastInsertRowid });
 });
 

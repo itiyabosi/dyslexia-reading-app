@@ -17,15 +17,56 @@ if (process.env.DATABASE_PATH) {
 console.log(`データベースパス: ${dbPath}`);
 const db = new Database(dbPath);
 
+// データベースマイグレーション（スキーマ変更対応）
+function migrateDatabase() {
+  // children テーブルに birth_date カラムが存在するか確認
+  const tableInfo = db.prepare("PRAGMA table_info(children)").all();
+  const hasBirthDate = tableInfo.some(col => col.name === 'birth_date');
+  const hasEnrollmentYear = tableInfo.some(col => col.name === 'enrollment_year');
+
+  // 旧スキーマ（birth_dateあり、enrollment_year/monthなし）の場合、マイグレーション実行
+  if (hasBirthDate && !hasEnrollmentYear && tableInfo.length > 0) {
+    console.log('データベーススキーマをマイグレーション中...');
+
+    // 新しいテーブルを作成
+    db.exec(`
+      CREATE TABLE children_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        grade TEXT,
+        enrollment_year INTEGER,
+        enrollment_month INTEGER,
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // データをコピー
+    db.exec(`
+      INSERT INTO children_new (id, name, grade, notes, created_at)
+      SELECT id, name, grade, notes, created_at FROM children
+    `);
+
+    // 古いテーブルを削除
+    db.exec('DROP TABLE children');
+
+    // 新しいテーブルをリネーム
+    db.exec('ALTER TABLE children_new RENAME TO children');
+
+    console.log('マイグレーション完了');
+  }
+}
+
 // データベース初期化
 function initDatabase() {
-  // 児童マスター
+  // 児童マスター（新スキーマ）
   db.exec(`
     CREATE TABLE IF NOT EXISTS children (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       grade TEXT,
-      birth_date TEXT,
+      enrollment_year INTEGER,
+      enrollment_month INTEGER,
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -149,6 +190,7 @@ function insertSampleData() {
 
 module.exports = {
   db,
+  migrateDatabase,
   initDatabase,
   insertSampleData
 };
