@@ -35,17 +35,42 @@ nav {
   margin-bottom: 20px;
   border-radius: 5px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+nav .nav-links {
+  display: flex;
+  gap: 20px;
 }
 
 nav a {
   color: #4CAF50;
   text-decoration: none;
-  margin-right: 20px;
   font-weight: bold;
 }
 
 nav a:hover {
   text-decoration: underline;
+}
+
+nav .logout-btn {
+  color: #f44336;
+  background-color: transparent;
+  border: 1px solid #f44336;
+  padding: 6px 15px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+nav .logout-btn:hover {
+  background-color: #f44336;
+  color: white;
+  text-decoration: none;
 }
 
 .card {

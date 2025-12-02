@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ログイン - ディスレクシア読みテストアプリ</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .login-container {
+      background: white;
+      padding: 40px;
+      border-radius: 10px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .login-container h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+
+    .login-container p {
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .login-form input[type="password"] {
+      padding: 15px;
+      font-size: 18px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      text-align: center;
+      letter-spacing: 5px;
+    }
+
+    .login-form input[type="password"]:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .login-form button {
+      padding: 15px;
+      font-size: 18px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .login-form button:hover {
+      opacity: 0.9;
+    }
+
+    .error-message {
+      color: #d32f2f;
+      background-color: #ffebee;
+      padding: 12px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      display: <%= error ? 'block' : 'none' %>;
+    }
+
+    .lock-icon {
+      font-size: 60px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="lock-icon">🔒</div>
+    <h1>ディスレクシア読みテストアプリ</h1>
+    <p>パスワードを入力してください</p>
+
+    <% if (error) { %>
+      <div class="error-message">
+        <%= error %>
+      </div>
+    <% } %>
+
+    <form action="/login" method="POST" class="login-form">
+      <input
+        type="password"
+        name="password"
+        placeholder="パスワード"
+        required
+        autofocus
+        maxlength="6"
+      >
+      <button type="submit">ログイン</button>
+    </form>
+  </div>
+</body>
+</html>

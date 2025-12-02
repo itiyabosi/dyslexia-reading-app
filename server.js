@@ -1,4 +1,5 @@
 const express = require('express');
+const session = require('express-session');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
@@ -10,6 +11,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const PASSWORD = '000000'; // アプリのパスワード
 
 // Multer設定（フォントファイルアップロード用）
 const storage = multer.diskStorage({
@@ -45,6 +47,56 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+
+// セッション設定
+app.use(session({
+  secret: 'dyslexia-reading-app-secret-key-2024',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000 // 24時間
+  }
+}));
+
+// ======== 認証関連 ========
+
+// ログイン画面表示
+app.get('/login', (req, res) => {
+  res.render('login', { error: null });
+});
+
+// ログイン処理
+app.post('/login', (req, res) => {
+  const { password } = req.body;
+
+  if (password === PASSWORD) {
+    req.session.authenticated = true;
+    res.redirect('/');
+  } else {
+    res.render('login', { error: 'パスワードが正しくありません' });
+  }
+});
+
+// ログアウト
+app.get('/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/login');
+});
+
+// 認証チェックミドルウェア（ログイン関連以外のすべてのルートに適用）
+app.use((req, res, next) => {
+  // ログインページとログアウトは認証不要
+  if (req.path === '/login' || req.path === '/logout') {
+    return next();
+  }
+
+  // 認証されているかチェック
+  if (req.session.authenticated) {
+    next();
+  } else {
+    res.redirect('/login');
+  }
+});
 
 // ======== 児童管理 ========
 
