@@ -1,7 +1,21 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
-const db = new Database(path.join(__dirname, 'reading_data.db'));
+// データベースファイルのパスを環境変数から取得（Render用）、なければローカルパス
+const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'reading_data.db');
+
+// Render環境の場合、ディレクトリが存在するか確認
+if (process.env.DATABASE_PATH) {
+  const dbDir = path.dirname(dbPath);
+  if (!fs.existsSync(dbDir)) {
+    console.log(`データベースディレクトリを作成: ${dbDir}`);
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+}
+
+console.log(`データベースパス: ${dbPath}`);
+const db = new Database(dbPath);
 
 // データベース初期化
 function initDatabase() {

@@ -9,8 +9,10 @@ services:
         value: production
       - key: PORT
         value: 3001
+      - key: DATABASE_PATH
+        value: /data/reading_data.db
     # 永続ディスク設定（SQLiteデータベース用）
     disk:
       name: data
-      mountPath: /opt/render/project/src
+      mountPath: /data
       sizeGB: 1
