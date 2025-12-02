@@ -171,20 +171,37 @@
       console.log('[DEBUG] 元のfontFamily:', fontFamily);
       console.log('[DEBUG] クリーン後のfontFamily:', cleanedFontFamily);
 
-      // 既存のスタイルをクリア
-      document.body.style.fontFamily = '';
-      wordDisplay.style.fontFamily = '';
+      // 既存の動的スタイルを削除
+      const existingStyle = document.getElementById('dynamic-font-style');
+      if (existingStyle) {
+        existingStyle.remove();
+      }
 
-      // 少し待ってから適用（レンダリング確実化）
+      // 新しいstyleタグを作成して、すべての要素に!importantで適用
+      const styleTag = document.createElement('style');
+      styleTag.id = 'dynamic-font-style';
+      styleTag.innerHTML = `
+        body,
+        body *,
+        input,
+        button,
+        select,
+        textarea,
+        label,
+        h1, h2, h3, h4, h5, h6,
+        p, span, div, a {
+          font-family: ${cleanedFontFamily} !important;
+        }
+      `;
+      document.head.appendChild(styleTag);
+
+      console.log('[DEBUG] フォント適用（全体・!important）:', cleanedFontFamily);
+
+      // 確認用
       setTimeout(() => {
-        // ページ全体にフォントを適用
-        document.body.style.fontFamily = cleanedFontFamily;
-        // 単語表示エリアにも明示的に適用
-        wordDisplay.style.fontFamily = cleanedFontFamily;
-        console.log('[DEBUG] フォント適用（全体）:', cleanedFontFamily);
         console.log('[DEBUG] Body fontFamily:', window.getComputedStyle(document.body).fontFamily);
         console.log('[DEBUG] WordDisplay fontFamily:', window.getComputedStyle(wordDisplay).fontFamily);
-      }, 10);
+      }, 50);
     }
 
     // フォントプレビューを表示
