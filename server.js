@@ -571,6 +571,61 @@ app.get('/api/analysis/:childId', async (req, res) => {
   }
 });
 
+// ======== 管理機能 ========
+
+// 単語リストリセットAPI（パスワード保護）
+app.post('/api/admin/reset-word-lists', async (req, res) => {
+  const { password } = req.body;
+
+  // パスワード確認
+  if (password !== PASSWORD) {
+    return res.status(403).json({ success: false, message: 'パスワードが正しくありません' });
+  }
+
+  console.log('[DEBUG] 単語リストリセット開始');
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // 既存の単語リストと単語を削除
+    await client.query('DELETE FROM words');
+    await client.query('DELETE FROM word_lists');
+    console.log('[DEBUG] 既存の単語リストを削除しました');
+
+    // 新しい単語リストを追加
+    const wordListInsert = await client.query(
+      'INSERT INTO word_lists (name, description) VALUES ($1, $2) RETURNING id',
+      ['Basic English Words', 'Common English words for beginners']
+    );
+    const wordListId = wordListInsert.rows[0].id;
+
+    // 新しい単語を追加
+    const sampleWords = [
+      'em', 'tad', 'pev', 'ret', 'hame', 'flate', 'drap', 'wick'
+    ];
+
+    for (let i = 0; i < sampleWords.length; i++) {
+      await client.query(
+        'INSERT INTO words (word_list_id, word_text, display_order) VALUES ($1, $2, $3)',
+        [wordListId, sampleWords[i], i + 1]
+      );
+    }
+
+    await client.query('COMMIT');
+    console.log('[SUCCESS] 単語リストをリセットしました');
+
+    res.json({ success: true, message: '単語リストをリセットしました', wordCount: sampleWords.length });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('[ERROR] 単語リストリセットエラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました: ' + error.message });
+  } finally {
+    client.release();
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`サーバーが起動しました: http://localhost:${PORT}`);
 });
