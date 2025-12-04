@@ -15,10 +15,32 @@ if (process.env.DATABASE_PATH) {
 }
 
 console.log(`データベースパス: ${dbPath}`);
+console.log(`環境: ${process.env.NODE_ENV || 'development'}`);
+
+// データベースファイルが存在するかチェック
+if (fs.existsSync(dbPath)) {
+  const stats = fs.statSync(dbPath);
+  console.log(`既存のデータベースファイルを使用（サイズ: ${stats.size} bytes）`);
+} else {
+  console.log('新しいデータベースファイルを作成します');
+}
+
 const db = new Database(dbPath);
+
+// WALモードを有効にして、パフォーマンスと同時アクセスを改善
+db.pragma('journal_mode = WAL');
+console.log('データベースをWALモードに設定しました');
 
 // データベースマイグレーション（スキーマ変更対応）
 function migrateDatabase() {
+  // children テーブルが存在するか確認
+  const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='children'").get();
+
+  if (!tableExists) {
+    console.log('children テーブルが存在しないため、マイグレーションをスキップします');
+    return;
+  }
+
   // children テーブルに birth_date カラムが存在するか確認
   const tableInfo = db.prepare("PRAGMA table_info(children)").all();
   const hasBirthDate = tableInfo.some(col => col.name === 'birth_date');
@@ -70,6 +92,8 @@ function migrateDatabase() {
 
 // データベース初期化
 function initDatabase() {
+  console.log('データベーステーブルを初期化中...');
+
   // 児童マスター（新スキーマ）
   db.exec(`
     CREATE TABLE IF NOT EXISTS children (
@@ -155,8 +179,12 @@ function initDatabase() {
 // サンプルデータの投入
 function insertSampleData() {
   const checkWordList = db.prepare('SELECT COUNT(*) as count FROM word_lists').get();
+  const checkChildren = db.prepare('SELECT COUNT(*) as count FROM children').get();
+
+  console.log(`既存データ: 単語リスト=${checkWordList.count}件, 児童=${checkChildren.count}件`);
 
   if (checkWordList.count === 0) {
+    console.log('サンプルデータを投入中...');
     // サンプル単語リスト
     const insertWordList = db.prepare('INSERT INTO word_lists (name, description) VALUES (?, ?)');
     const wordListId = insertWordList.run('基本単語セット1', 'ひらがな・カタカナの基本単語').lastInsertRowid;
@@ -173,6 +201,8 @@ function insertSampleData() {
     });
 
     console.log('サンプルデータを投入しました');
+  } else {
+    console.log('既存のデータが存在するため、サンプルデータの投入をスキップします');
   }
 
   // デフォルトフォントの投入

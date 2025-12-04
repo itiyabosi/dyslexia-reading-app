@@ -38,8 +38,9 @@ const upload = multer({
 });
 
 // データベース初期化（マイグレーション含む）
-initDatabase();
+// 重要: マイグレーションを先に実行してから、テーブル作成を行う
 migrateDatabase();
+initDatabase();
 insertSampleData();
 
 // ミドルウェア設定
