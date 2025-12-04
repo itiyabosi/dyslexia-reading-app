@@ -608,28 +608,23 @@
         '<th>変化</th>' +
         '<th>テスト回数</th>' +
         '<th>正答率</th>' +
-        '<th>推奨アクション</th>' +
         '</tr></thead><tbody>';
 
       needsImprovement.forEach(item => {
-        let status, statusStyle, action;
+        let status, statusStyle;
 
         if (item.improvementPercent < -10) {
           status = '⚠️ 悪化';
           statusStyle = 'background-color: #ffebee; color: #c62828; font-weight: bold;';
-          action = '重点的な練習が必要';
         } else if (item.improvementPercent < 0) {
           status = '⚠️ わずかに悪化';
           statusStyle = 'background-color: #fff3e0; color: #e65100; font-weight: bold;';
-          action = '追加練習を推奨';
         } else if (item.improvementPercent < 5) {
           status = '△ ほぼ変化なし';
           statusStyle = 'background-color: #fffde7; color: #f57f17;';
-          action = '継続的な練習';
         } else {
           status = '△ わずかに改善';
           statusStyle = 'background-color: #f1f8e9; color: #558b2f;';
-          action = 'さらなる練習';
         }
 
         const changeText = item.improvementPercent > 0
@@ -644,7 +639,6 @@
           '<td>' + changeText + '</td>' +
           '<td>' + item.testCount + '</td>' +
           '<td>' + item.successRate.toFixed(0) + '%</td>' +
-          '<td>' + action + '</td>' +
           '</tr>';
       });
 

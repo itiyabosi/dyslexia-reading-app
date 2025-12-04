@@ -224,6 +224,52 @@ app.post('/api/words', async (req, res) => {
   }
 });
 
+// 単語一括追加API（スペース区切り対応）
+app.post('/api/words/bulk', async (req, res) => {
+  try {
+    const { word_list_id, words } = req.body;
+
+    if (!Array.isArray(words) || words.length === 0) {
+      return res.status(400).json({ success: false, message: '単語が指定されていません' });
+    }
+
+    // 最大のdisplay_orderを取得
+    const maxOrderResult = await pool.query(
+      'SELECT MAX(display_order) as max FROM words WHERE word_list_id = $1',
+      [word_list_id]
+    );
+    let displayOrder = (maxOrderResult.rows[0].max || 0) + 1;
+
+    // トランザクションで複数の単語を追加
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const insertedIds = [];
+      for (const word of words) {
+        const result = await client.query(
+          'INSERT INTO words (word_list_id, word_text, display_order) VALUES ($1, $2, $3) RETURNING id',
+          [word_list_id, word.trim(), displayOrder]
+        );
+        insertedIds.push(result.rows[0].id);
+        displayOrder++;
+      }
+
+      await client.query('COMMIT');
+      console.log(`[SUCCESS] ${words.length}個の単語を追加しました`);
+      res.json({ success: true, count: words.length, ids: insertedIds });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('単語一括追加エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
+});
+
 // 単語削除API
 app.delete('/api/words/:id', async (req, res) => {
   try {

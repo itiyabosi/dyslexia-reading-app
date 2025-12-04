@@ -1,6 +1,8 @@
+require('dotenv').config();
 const { Pool } = require('pg');
 
 console.log(`環境: ${process.env.NODE_ENV || 'development'}`);
+console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? '設定済み' : '未設定'}`);
 
 // PostgreSQL接続設定
 const pool = new Pool({
