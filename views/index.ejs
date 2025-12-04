@@ -25,94 +25,96 @@
     <div class="card">
       <h2>児童の登録</h2>
       <form id="addChildForm">
-        <div class="form-group">
-          <label for="name">名前 *</label>
-          <input type="text" id="name" name="name" required>
+        <div class="form-grid">
+          <div class="form-group form-grid-full">
+            <label for="name">名前 *</label>
+            <input type="text" id="name" name="name" required>
+          </div>
+          <div class="form-group">
+            <label for="grade">学年 / 年齢（生年月から自動計算されます）</label>
+            <select id="grade" name="grade">
+              <option value="">選択してください</option>
+              <option value="小学1年">小学1年</option>
+              <option value="小学2年">小学2年</option>
+              <option value="小学3年">小学3年</option>
+              <option value="小学4年">小学4年</option>
+              <option value="小学5年">小学5年</option>
+              <option value="小学6年">小学6年</option>
+              <option value="中学1年">中学1年</option>
+              <option value="中学2年">中学2年</option>
+              <option value="中学3年">中学3年</option>
+              <option value="高校1年">高校1年</option>
+              <option value="高校2年">高校2年</option>
+              <option value="高校3年">高校3年</option>
+              <option value="19歳">19歳</option>
+              <option value="20歳">20歳</option>
+              <option value="21歳">21歳</option>
+              <option value="22歳">22歳</option>
+              <option value="23歳">23歳</option>
+              <option value="24歳">24歳</option>
+              <option value="25歳">25歳</option>
+              <option value="26歳">26歳</option>
+              <option value="27歳">27歳</option>
+              <option value="28歳">28歳</option>
+              <option value="29歳">29歳</option>
+              <option value="30歳">30歳</option>
+              <option value="31歳">31歳</option>
+              <option value="32歳">32歳</option>
+              <option value="33歳">33歳</option>
+              <option value="34歳">34歳</option>
+              <option value="35歳">35歳</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="birth_year">生年</label>
+            <input type="number" id="birth_year" name="birth_year" placeholder="例: 2010" min="1990" max="2025">
+          </div>
+          <div class="form-group">
+            <label for="birth_month">生月</label>
+            <select id="birth_month" name="birth_month">
+              <option value="">選択してください</option>
+              <option value="1">1月</option>
+              <option value="2">2月</option>
+              <option value="3">3月</option>
+              <option value="4">4月</option>
+              <option value="5">5月</option>
+              <option value="6">6月</option>
+              <option value="7">7月</option>
+              <option value="8">8月</option>
+              <option value="9">9月</option>
+              <option value="10">10月</option>
+              <option value="11">11月</option>
+              <option value="12">12月</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="enrollment_year">入塾年</label>
+            <input type="number" id="enrollment_year" name="enrollment_year" placeholder="例: 2024" min="2000" max="2100">
+          </div>
+          <div class="form-group">
+            <label for="enrollment_month">入塾月</label>
+            <select id="enrollment_month" name="enrollment_month">
+              <option value="">選択してください</option>
+              <option value="1">1月</option>
+              <option value="2">2月</option>
+              <option value="3">3月</option>
+              <option value="4">4月</option>
+              <option value="5">5月</option>
+              <option value="6">6月</option>
+              <option value="7">7月</option>
+              <option value="8">8月</option>
+              <option value="9">9月</option>
+              <option value="10">10月</option>
+              <option value="11">11月</option>
+              <option value="12">12月</option>
+            </select>
+          </div>
+          <div class="form-group form-grid-full">
+            <label for="notes">備考</label>
+            <textarea id="notes" name="notes" rows="3"></textarea>
+          </div>
         </div>
-        <div class="form-group">
-          <label for="grade">学年 / 年齢（生年月から自動計算されます）</label>
-          <select id="grade" name="grade">
-            <option value="">選択してください</option>
-            <option value="小学1年">小学1年</option>
-            <option value="小学2年">小学2年</option>
-            <option value="小学3年">小学3年</option>
-            <option value="小学4年">小学4年</option>
-            <option value="小学5年">小学5年</option>
-            <option value="小学6年">小学6年</option>
-            <option value="中学1年">中学1年</option>
-            <option value="中学2年">中学2年</option>
-            <option value="中学3年">中学3年</option>
-            <option value="高校1年">高校1年</option>
-            <option value="高校2年">高校2年</option>
-            <option value="高校3年">高校3年</option>
-            <option value="19歳">19歳</option>
-            <option value="20歳">20歳</option>
-            <option value="21歳">21歳</option>
-            <option value="22歳">22歳</option>
-            <option value="23歳">23歳</option>
-            <option value="24歳">24歳</option>
-            <option value="25歳">25歳</option>
-            <option value="26歳">26歳</option>
-            <option value="27歳">27歳</option>
-            <option value="28歳">28歳</option>
-            <option value="29歳">29歳</option>
-            <option value="30歳">30歳</option>
-            <option value="31歳">31歳</option>
-            <option value="32歳">32歳</option>
-            <option value="33歳">33歳</option>
-            <option value="34歳">34歳</option>
-            <option value="35歳">35歳</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="birth_year">生年</label>
-          <input type="number" id="birth_year" name="birth_year" placeholder="例: 2010" min="1990" max="2025">
-        </div>
-        <div class="form-group">
-          <label for="birth_month">生月</label>
-          <select id="birth_month" name="birth_month">
-            <option value="">選択してください</option>
-            <option value="1">1月</option>
-            <option value="2">2月</option>
-            <option value="3">3月</option>
-            <option value="4">4月</option>
-            <option value="5">5月</option>
-            <option value="6">6月</option>
-            <option value="7">7月</option>
-            <option value="8">8月</option>
-            <option value="9">9月</option>
-            <option value="10">10月</option>
-            <option value="11">11月</option>
-            <option value="12">12月</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="enrollment_year">入塾年</label>
-          <input type="number" id="enrollment_year" name="enrollment_year" placeholder="例: 2024" min="2000" max="2100">
-        </div>
-        <div class="form-group">
-          <label for="enrollment_month">入塾月</label>
-          <select id="enrollment_month" name="enrollment_month">
-            <option value="">選択してください</option>
-            <option value="1">1月</option>
-            <option value="2">2月</option>
-            <option value="3">3月</option>
-            <option value="4">4月</option>
-            <option value="5">5月</option>
-            <option value="6">6月</option>
-            <option value="7">7月</option>
-            <option value="8">8月</option>
-            <option value="9">9月</option>
-            <option value="10">10月</option>
-            <option value="11">11月</option>
-            <option value="12">12月</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="notes">備考</label>
-          <textarea id="notes" name="notes" rows="3"></textarea>
-        </div>
-        <button type="submit" class="btn btn-primary">登録</button>
+        <button type="submit" class="btn btn-primary" style="margin-top: 15px;">登録</button>
       </form>
     </div>
 
