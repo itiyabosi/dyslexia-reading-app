@@ -151,6 +151,18 @@
       </div>
 
       <div class="card">
+        <h2>🔤 フォニックスパターン分析</h2>
+        <p style="color: #666; margin-bottom: 15px;">初頭子音・母音・語尾パターンの習得状況（苦手なパターンは赤色表示）</p>
+        <div id="phonicsAnalysisTable"></div>
+      </div>
+
+      <div class="card">
+        <h2>🎵 ライム（韻）分析</h2>
+        <p style="color: #666; margin-bottom: 15px;">単語の韻（語尾パターン）の習得状況（苦手なパターンは赤色表示）</p>
+        <div id="rimeAnalysisTable"></div>
+      </div>
+
+      <div class="card">
         <h2>⏱️ 読み時間の推移</h2>
         <div class="chart-container">
           <canvas id="timeChart"></canvas>
@@ -285,6 +297,10 @@
 
       // フォント別分析
       drawFontComparison(data.records, fontStats);
+
+      // フォニックス・ライム分析
+      drawPhonicsAnalysis(data.records);
+      drawRimeAnalysis(data.records);
 
       statsArea.style.display = 'block';
     });
@@ -1061,6 +1077,247 @@
 
       tableHtml += '</tbody></table>';
       container.innerHTML = tableHtml;
+    }
+
+    // ========== フォニックスパターン分析 ==========
+    function extractPhonicsPatterns(word) {
+      if (!word) return [];
+      word = word.toLowerCase();
+
+      const patterns = [];
+
+      // 初頭子音パターン
+      const initialConsonants = [
+        'bl', 'br', 'ch', 'cl', 'cr', 'dr', 'fl', 'fr', 'gh', 'gl', 'gr',
+        'ph', 'pl', 'pr', 'sc', 'sh', 'sk', 'sl', 'sm', 'sn', 'sp', 'st',
+        'sw', 'th', 'tr', 'tw', 'wh', 'wr'
+      ];
+
+      for (const pattern of initialConsonants) {
+        if (word.startsWith(pattern)) {
+          patterns.push(pattern + '-');
+          break;
+        }
+      }
+
+      if (patterns.length === 0 && word.length > 0 && /[bcdfghjklmnpqrstvwxyz]/.test(word[0])) {
+        patterns.push(word[0] + '-');
+      }
+
+      // 母音パターン
+      const vowelPatterns = ['ai', 'ay', 'ea', 'ee', 'ie', 'oa', 'oe', 'oo', 'ou', 'ow', 'ue', 'ui'];
+      for (const pattern of vowelPatterns) {
+        if (word.includes(pattern)) {
+          patterns.push('-' + pattern + '-');
+        }
+      }
+
+      // 単一母音
+      if (!patterns.some(p => p.includes('-') && p.length > 2)) {
+        const singleVowels = word.match(/[aeiou]/g);
+        if (singleVowels && singleVowels.length > 0) {
+          patterns.push('-' + singleVowels[0] + '-');
+        }
+      }
+
+      // 語尾パターン
+      const endings = ['ck', 'ng', 'nk', 'ed', 'er', 'est', 'ing', 'le', 'ly', 'tion', 'sion'];
+      for (const pattern of endings) {
+        if (word.endsWith(pattern)) {
+          patterns.push('-' + pattern);
+          break;
+        }
+      }
+
+      return patterns;
+    }
+
+    function extractRime(word) {
+      if (!word || word.length < 2) return null;
+      word = word.toLowerCase();
+
+      // 一般的なライムパターン（母音+子音で終わる）
+      const rimeMatch = word.match(/([aeiou][a-z]*)$/);
+      if (rimeMatch && rimeMatch[1].length >= 2) {
+        return '-' + rimeMatch[1];
+      }
+
+      return null;
+    }
+
+    function drawPhonicsAnalysis(records) {
+      const container = document.getElementById('phonicsAnalysisTable');
+
+      if (!records || records.length === 0) {
+        container.innerHTML = '<p style="color: #999;">テストデータがありません。</p>';
+        return;
+      }
+
+      // フォニックスパターンごとの統計を集計
+      const phonicsStats = {};
+
+      records.forEach(record => {
+        const word = record.word_text;
+        const patterns = extractPhonicsPatterns(word);
+        const success = record.could_read === 1;
+
+        patterns.forEach(pattern => {
+          if (!phonicsStats[pattern]) {
+            phonicsStats[pattern] = { total: 0, success: 0 };
+          }
+          phonicsStats[pattern].total++;
+          if (success) phonicsStats[pattern].success++;
+        });
+      });
+
+      // 正答率を計算してソート
+      const phonicsArray = Object.keys(phonicsStats).map(pattern => ({
+        pattern: pattern,
+        total: phonicsStats[pattern].total,
+        success: phonicsStats[pattern].success,
+        rate: (phonicsStats[pattern].success / phonicsStats[pattern].total * 100).toFixed(1)
+      })).sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+
+      if (phonicsArray.length === 0) {
+        container.innerHTML = '<p style="color: #999;">フォニックスパターンが抽出できませんでした。</p>';
+        return;
+      }
+
+      // グリッド表示
+      let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;">';
+
+      phonicsArray.forEach(item => {
+        const rate = parseFloat(item.rate);
+        let bgColor, textColor;
+
+        if (rate < 50) {
+          bgColor = '#ffcdd2'; // 赤
+          textColor = '#c62828';
+        } else if (rate < 70) {
+          bgColor = '#ffe0b2'; // オレンジ
+          textColor = '#e65100';
+        } else if (rate < 90) {
+          bgColor = '#fff9c4'; // 黄色
+          textColor = '#f57f17';
+        } else {
+          bgColor = '#c8e6c9'; // 緑
+          textColor = '#2e7d32';
+        }
+
+        html += `
+          <div style="
+            background-color: ${bgColor};
+            border: 2px solid ${textColor};
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+          ">
+            <div style="font-size: 24px; font-weight: bold; color: ${textColor}; margin-bottom: 8px;">
+              ${item.pattern}
+            </div>
+            <div style="font-size: 28px; font-weight: bold; color: ${textColor}; margin-bottom: 5px;">
+              ${item.rate}%
+            </div>
+            <div style="font-size: 12px; color: #666;">
+              ${item.success}/${item.total}回正解
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function drawRimeAnalysis(records) {
+      const container = document.getElementById('rimeAnalysisTable');
+
+      if (!records || records.length === 0) {
+        container.innerHTML = '<p style="color: #999;">テストデータがありません。</p>';
+        return;
+      }
+
+      // ライムごとの統計を集計
+      const rimeStats = {};
+
+      records.forEach(record => {
+        const word = record.word_text;
+        const rime = extractRime(word);
+        const success = record.could_read === 1;
+
+        if (rime) {
+          if (!rimeStats[rime]) {
+            rimeStats[rime] = { total: 0, success: 0, words: [] };
+          }
+          rimeStats[rime].total++;
+          if (success) rimeStats[rime].success++;
+          if (!rimeStats[rime].words.includes(word)) {
+            rimeStats[rime].words.push(word);
+          }
+        }
+      });
+
+      // 正答率を計算してソート
+      const rimeArray = Object.keys(rimeStats).map(rime => ({
+        rime: rime,
+        total: rimeStats[rime].total,
+        success: rimeStats[rime].success,
+        rate: (rimeStats[rime].success / rimeStats[rime].total * 100).toFixed(1),
+        words: rimeStats[rime].words.slice(0, 3).join(', ')
+      })).sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+
+      if (rimeArray.length === 0) {
+        container.innerHTML = '<p style="color: #999;">ライムパターンが抽出できませんでした。</p>';
+        return;
+      }
+
+      // グリッド表示
+      let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;">';
+
+      rimeArray.forEach(item => {
+        const rate = parseFloat(item.rate);
+        let bgColor, textColor;
+
+        if (rate < 50) {
+          bgColor = '#ffcdd2'; // 赤
+          textColor = '#c62828';
+        } else if (rate < 70) {
+          bgColor = '#ffe0b2'; // オレンジ
+          textColor = '#e65100';
+        } else if (rate < 90) {
+          bgColor = '#fff9c4'; // 黄色
+          textColor = '#f57f17';
+        } else {
+          bgColor = '#c8e6c9'; // 緑
+          textColor = '#2e7d32';
+        }
+
+        html += `
+          <div style="
+            background-color: ${bgColor};
+            border: 2px solid ${textColor};
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+          ">
+            <div style="font-size: 26px; font-weight: bold; color: ${textColor}; margin-bottom: 8px;">
+              ${item.rime}
+            </div>
+            <div style="font-size: 28px; font-weight: bold; color: ${textColor}; margin-bottom: 5px;">
+              ${item.rate}%
+            </div>
+            <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
+              ${item.success}/${item.total}回正解
+            </div>
+            <div style="font-size: 11px; color: #888; font-style: italic;">
+              例: ${item.words}
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+      container.innerHTML = html;
     }
   </script>
 </body>
