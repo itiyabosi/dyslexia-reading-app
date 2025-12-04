@@ -354,6 +354,10 @@ table th:nth-child(6), table td:nth-child(6) { /* 操作 */
   grid-column: 1 / -1;
 }
 
+.form-grid-right {
+  grid-column: 2;
+}
+
 /* カードの配置調整 */
 .card {
   max-width: 100%;
@@ -366,6 +370,10 @@ table th:nth-child(6), table td:nth-child(6) { /* 操作 */
   }
 
   .form-grid-full {
+    grid-column: 1;
+  }
+
+  .form-grid-right {
     grid-column: 1;
   }
 
