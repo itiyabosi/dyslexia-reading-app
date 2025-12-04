@@ -142,10 +142,9 @@
       </div>
 
       <div class="card">
-        <h2>📈 成績推移（時系列）</h2>
-        <div class="chart-container">
-          <canvas id="progressChart"></canvas>
-        </div>
+        <h2>📊 単語リスト別正答率</h2>
+        <p style="color: #666; margin-bottom: 15px;">各単語セットでの正答率と詳細統計</p>
+        <div id="wordSetAccuracyTable"></div>
       </div>
 
       <div class="card">
@@ -296,43 +295,11 @@
       Object.values(charts).forEach(chart => chart.destroy());
       charts = {};
 
-      // 1. 成績推移グラフ（折れ線）
-      const progressData = data.records.slice().reverse();
-      charts.progress = new Chart(document.getElementById('progressChart'), {
-        type: 'line',
-        data: {
-          labels: progressData.map((r, i) => (i + 1) + '回目'),
-          datasets: [{
-            label: '読めた（1）/ 読めなかった（0）',
-            data: progressData.map(r => r.could_read),
-            borderColor: '#4CAF50',
-            backgroundColor: 'rgba(76, 175, 80, 0.1)',
-            tension: 0.4,
-            fill: true
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: 1,
-              ticks: {
-                stepSize: 1,
-                callback: function(value) {
-                  return value === 1 ? '読めた' : '読めなかった';
-                }
-              }
-            }
-          },
-          plugins: {
-            legend: { display: false }
-          }
-        }
-      });
+      // 1. 単語リスト別正答率テーブル
+      drawWordSetAccuracyTable(data.records);
 
       // 2. 読み時間の推移（折れ線）
+      const progressData = data.records.slice().reverse();
       const timeData = progressData.filter(r => r.reading_time_seconds);
       charts.time = new Chart(document.getElementById('timeChart'), {
         type: 'line',
@@ -678,6 +645,111 @@
           '<td>' + item.testCount + '</td>' +
           '<td>' + item.successRate.toFixed(0) + '%</td>' +
           '<td>' + action + '</td>' +
+          '</tr>';
+      });
+
+      tableHtml += '</tbody></table>';
+      container.innerHTML = tableHtml;
+    }
+
+    // ========== 単語リスト別正答率テーブル ==========
+    function drawWordSetAccuracyTable(records) {
+      const container = document.getElementById('wordSetAccuracyTable');
+
+      if (records.length === 0) {
+        container.innerHTML = '<p style="color: #999;">テスト記録がありません。</p>';
+        return;
+      }
+
+      // 単語リストごとにデータを集計
+      const wordListStats = {};
+
+      records.forEach(record => {
+        const listName = record.word_list_name;
+
+        if (!wordListStats[listName]) {
+          wordListStats[listName] = {
+            total: 0,
+            success: 0,
+            totalTime: 0,
+            timeCount: 0,
+            words: {}
+          };
+        }
+
+        const stats = wordListStats[listName];
+        stats.total++;
+        if (record.could_read) {
+          stats.success++;
+        }
+        if (record.reading_time_seconds) {
+          stats.totalTime += record.reading_time_seconds;
+          stats.timeCount++;
+        }
+
+        // 単語ごとの統計も取得
+        const word = record.word_text;
+        if (!stats.words[word]) {
+          stats.words[word] = {
+            total: 0,
+            success: 0
+          };
+        }
+        stats.words[word].total++;
+        if (record.could_read) {
+          stats.words[word].success++;
+        }
+      });
+
+      // テーブル作成
+      let tableHtml = '<table><thead><tr>' +
+        '<th>単語リスト</th>' +
+        '<th>総テスト数</th>' +
+        '<th>正答数</th>' +
+        '<th>正答率</th>' +
+        '<th>平均読み時間（秒）</th>' +
+        '<th>単語数</th>' +
+        '<th>完全習得単語</th>' +
+        '<th>評価</th>' +
+        '</tr></thead><tbody>';
+
+      Object.keys(wordListStats).forEach(listName => {
+        const stats = wordListStats[listName];
+        const successRate = (stats.success / stats.total * 100).toFixed(1);
+        const avgTime = stats.timeCount > 0 ? (stats.totalTime / stats.timeCount).toFixed(2) : '-';
+
+        // 完全習得単語（正答率100%）の数
+        const wordCount = Object.keys(stats.words).length;
+        const masteredWords = Object.values(stats.words).filter(w =>
+          w.success === w.total && w.total > 0
+        ).length;
+
+        // 評価
+        let evaluation, evalStyle;
+        const rate = parseFloat(successRate);
+        if (rate >= 90) {
+          evaluation = '⭐⭐⭐ 優秀';
+          evalStyle = 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold;';
+        } else if (rate >= 75) {
+          evaluation = '⭐⭐ 良好';
+          evalStyle = 'background-color: #fff8e1; color: #f9a825;';
+        } else if (rate >= 60) {
+          evaluation = '⭐ 要改善';
+          evalStyle = 'background-color: #fff3e0; color: #e65100;';
+        } else {
+          evaluation = '⚠️ 要強化';
+          evalStyle = 'background-color: #ffebee; color: #c62828; font-weight: bold;';
+        }
+
+        tableHtml += '<tr>' +
+          '<td style="font-weight: bold; font-size: 16px;">' + listName + '</td>' +
+          '<td>' + stats.total + '</td>' +
+          '<td style="color: #4CAF50; font-weight: bold;">' + stats.success + '</td>' +
+          '<td style="font-weight: bold; color: #0277BD; font-size: 18px;">' + successRate + '%</td>' +
+          '<td>' + avgTime + '</td>' +
+          '<td>' + wordCount + '</td>' +
+          '<td>' + masteredWords + ' / ' + wordCount + '</td>' +
+          '<td style="' + evalStyle + '">' + evaluation + '</td>' +
           '</tr>';
       });
 

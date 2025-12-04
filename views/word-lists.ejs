@@ -55,6 +55,15 @@
         <% }) %>
       <% } %>
     </div>
+
+    <div class="card">
+      <h2>管理機能</h2>
+      <p style="color: #666; margin-bottom: 15px;">
+        すべての単語リストを削除してデフォルトの単語リスト（em, tad, pev, ret, hame, flate, drap, wick）に置き換えます。<br>
+        <strong style="color: #f44336;">※ 既存のテスト記録は保持されますが、単語リストとの関連が失われる可能性があります。</strong>
+      </p>
+      <button onclick="resetWordLists()" class="btn btn-danger">単語リストをリセット</button>
+    </div>
   </div>
 
   <script>
@@ -74,6 +83,36 @@
         location.reload();
       }
     });
+
+    async function resetWordLists() {
+      if (!confirm('本当にすべての単語リストを削除してリセットしますか？\n\nこの操作は取り消せません。')) {
+        return;
+      }
+
+      const password = prompt('パスワードを入力してください:');
+      if (!password) {
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/reset-word-lists', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          alert(`成功: ${result.message}\n単語数: ${result.wordCount}`);
+          location.reload();
+        } else {
+          alert(`エラー: ${result.message}`);
+        }
+      } catch (error) {
+        alert('エラーが発生しました: ' + error.message);
+      }
+    }
   </script>
 </body>
 </html>
