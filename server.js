@@ -632,7 +632,7 @@ app.get('/api/analysis/:childId', async (req, res) => {
     const statsResult = await pool.query(
       `SELECT
         COUNT(*) as total_tests,
-        SUM(CASE WHEN could_read THEN 1 ELSE 0 END) as successful_reads,
+        SUM(CASE WHEN could_read = 1 THEN 1 ELSE 0 END) as successful_reads,
         AVG(reading_time_seconds) as avg_time,
         COUNT(CASE WHEN misread_as IS NOT NULL THEN 1 END) as misread_count,
         COUNT(DISTINCT DATE(test_date)) as test_days
@@ -647,6 +647,8 @@ app.get('/api/analysis/:childId', async (req, res) => {
     });
   } catch (error) {
     console.error('分析データ取得エラー:', error);
+    console.error('エラー詳細:', error.message);
+    console.error('childId:', req.params.childId);
     res.status(500).json({ success: false, message: 'エラーが発生しました' });
   }
 });
