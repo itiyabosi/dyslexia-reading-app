@@ -17,8 +17,15 @@ const PASSWORD = '000000'; // アプリのパスワード
 // Gitコミットハッシュを取得
 let COMMIT_HASH = 'unknown';
 try {
-  COMMIT_HASH = execSync('git rev-parse --short HEAD').toString().trim();
-  console.log(`現在のコミット: ${COMMIT_HASH}`);
+  // Render環境の場合は環境変数から取得
+  if (process.env.RENDER_GIT_COMMIT) {
+    COMMIT_HASH = process.env.RENDER_GIT_COMMIT.substring(0, 7);
+    console.log(`現在のコミット (Render): ${COMMIT_HASH}`);
+  } else {
+    // ローカル環境ではgitコマンドから取得
+    COMMIT_HASH = execSync('git rev-parse --short HEAD').toString().trim();
+    console.log(`現在のコミット (Local): ${COMMIT_HASH}`);
+  }
 } catch (error) {
   console.warn('Gitコミットハッシュの取得に失敗しました:', error.message);
 }
