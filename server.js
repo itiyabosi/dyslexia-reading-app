@@ -57,11 +57,23 @@ const upload = multer({
 // データベース初期化（async IIFE）
 (async () => {
   try {
+    console.log('=== データベース初期化開始 ===');
+    console.log('DATABASE_URL:', process.env.DATABASE_URL ? '設定済み' : '未設定');
+    console.log('NODE_ENV:', process.env.NODE_ENV);
+
     await initDatabase();
+    console.log('✓ データベーステーブル作成完了');
+
     await insertSampleData();
-    console.log('データベース初期化完了');
+    console.log('✓ サンプルデータ投入完了');
+
+    console.log('=== データベース初期化完了 ===');
   } catch (error) {
-    console.error('データベース初期化エラー:', error);
+    console.error('❌ データベース初期化エラー:', error);
+    console.error('エラー詳細:', error.stack);
+    // Renderでデバッグできるよう、詳細なエラー情報を出力
+    console.error('エラーメッセージ:', error.message);
+    console.error('エラーコード:', error.code);
     process.exit(1);
   }
 })();
