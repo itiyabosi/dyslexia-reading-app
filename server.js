@@ -5,7 +5,7 @@ const multer = require('multer');
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
-const { db, migrateDatabase, initDatabase, insertSampleData } = require('./database');
+const { pool, initDatabase, insertSampleData } = require('./database');
 const { saveReadingRecordToFirebase } = require('./firebaseService');
 require('dotenv').config();
 
@@ -37,11 +37,17 @@ const upload = multer({
   }
 });
 
-// データベース初期化（マイグレーション含む）
-// 重要: マイグレーションを先に実行してから、テーブル作成を行う
-migrateDatabase();
-initDatabase();
-insertSampleData();
+// データベース初期化（async IIFE）
+(async () => {
+  try {
+    await initDatabase();
+    await insertSampleData();
+    console.log('データベース初期化完了');
+  } catch (error) {
+    console.error('データベース初期化エラー:', error);
+    process.exit(1);
+  }
+})();
 
 // ミドルウェア設定
 app.use(express.json());
@@ -103,73 +109,130 @@ app.use((req, res, next) => {
 // ======== 児童管理 ========
 
 // 児童一覧・登録画面
-app.get('/', (req, res) => {
-  const children = db.prepare('SELECT * FROM children ORDER BY created_at DESC').all();
-  res.render('index', { children });
+app.get('/', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM children ORDER BY created_at DESC');
+    res.render('index', { children: result.rows });
+  } catch (error) {
+    console.error('児童一覧取得エラー:', error);
+    res.status(500).send('エラーが発生しました');
+  }
 });
 
 // 児童登録API
-app.post('/api/children', (req, res) => {
-  const { name, grade, birth_year, birth_month, enrollment_year, enrollment_month, notes } = req.body;
-  const stmt = db.prepare('INSERT INTO children (name, grade, birth_year, birth_month, enrollment_year, enrollment_month, notes) VALUES (?, ?, ?, ?, ?, ?, ?)');
-  const result = stmt.run(name, grade, birth_year || null, birth_month || null, enrollment_year || null, enrollment_month || null, notes);
-  res.json({ success: true, id: result.lastInsertRowid });
+app.post('/api/children', async (req, res) => {
+  try {
+    const { name, grade, birth_year, birth_month, enrollment_year, enrollment_month, notes } = req.body;
+    const result = await pool.query(
+      'INSERT INTO children (name, grade, birth_year, birth_month, enrollment_year, enrollment_month, notes) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+      [name, grade, birth_year || null, birth_month || null, enrollment_year || null, enrollment_month || null, notes]
+    );
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error('児童登録エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
 });
 
 // 児童削除API
-app.delete('/api/children/:id', (req, res) => {
-  const stmt = db.prepare('DELETE FROM children WHERE id = ?');
-  stmt.run(req.params.id);
-  res.json({ success: true });
+app.delete('/api/children/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM children WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('児童削除エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
 });
 
 // ======== 単語リスト管理 ========
 
 // 単語リスト管理画面
-app.get('/word-lists', (req, res) => {
-  const wordLists = db.prepare('SELECT * FROM word_lists ORDER BY created_at DESC').all();
-  res.render('word-lists', { wordLists });
+app.get('/word-lists', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM word_lists ORDER BY created_at DESC');
+    res.render('word-lists', { wordLists: result.rows });
+  } catch (error) {
+    console.error('単語リスト取得エラー:', error);
+    res.status(500).send('エラーが発生しました');
+  }
 });
 
 // 単語リスト詳細・編集画面
-app.get('/word-lists/:id', (req, res) => {
-  const wordList = db.prepare('SELECT * FROM word_lists WHERE id = ?').get(req.params.id);
-  const words = db.prepare('SELECT * FROM words WHERE word_list_id = ? ORDER BY display_order').all(req.params.id);
-  res.render('word-list-detail', { wordList, words });
+app.get('/word-lists/:id', async (req, res) => {
+  try {
+    const wordListResult = await pool.query('SELECT * FROM word_lists WHERE id = $1', [req.params.id]);
+    const wordsResult = await pool.query('SELECT * FROM words WHERE word_list_id = $1 ORDER BY display_order', [req.params.id]);
+
+    if (wordListResult.rows.length === 0) {
+      return res.status(404).send('単語リストが見つかりません');
+    }
+
+    res.render('word-list-detail', { wordList: wordListResult.rows[0], words: wordsResult.rows });
+  } catch (error) {
+    console.error('単語リスト詳細取得エラー:', error);
+    res.status(500).send('エラーが発生しました');
+  }
 });
 
 // 単語リスト作成API
-app.post('/api/word-lists', (req, res) => {
-  const { name, description } = req.body;
-  const stmt = db.prepare('INSERT INTO word_lists (name, description) VALUES (?, ?)');
-  const result = stmt.run(name, description);
-  res.json({ success: true, id: result.lastInsertRowid });
+app.post('/api/word-lists', async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const result = await pool.query(
+      'INSERT INTO word_lists (name, description) VALUES ($1, $2) RETURNING id',
+      [name, description]
+    );
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error('単語リスト作成エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
 });
 
 // 単語リスト一覧取得API（簡易版）
-app.get('/api/word-lists-simple', (req, res) => {
-  const wordLists = db.prepare('SELECT id, name, description FROM word_lists ORDER BY created_at DESC').all();
-  res.json(wordLists);
+app.get('/api/word-lists-simple', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, name, description FROM word_lists ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('単語リスト一覧取得エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
 });
 
 // 単語追加API
-app.post('/api/words', (req, res) => {
-  const { word_list_id, word_text } = req.body;
+app.post('/api/words', async (req, res) => {
+  try {
+    const { word_list_id, word_text } = req.body;
 
-  // 最大のdisplay_orderを取得
-  const maxOrder = db.prepare('SELECT MAX(display_order) as max FROM words WHERE word_list_id = ?').get(word_list_id);
-  const displayOrder = (maxOrder.max || 0) + 1;
+    // 最大のdisplay_orderを取得
+    const maxOrderResult = await pool.query(
+      'SELECT MAX(display_order) as max FROM words WHERE word_list_id = $1',
+      [word_list_id]
+    );
+    const displayOrder = (maxOrderResult.rows[0].max || 0) + 1;
 
-  const stmt = db.prepare('INSERT INTO words (word_list_id, word_text, display_order) VALUES (?, ?, ?)');
-  const result = stmt.run(word_list_id, word_text, displayOrder);
-  res.json({ success: true, id: result.lastInsertRowid });
+    const result = await pool.query(
+      'INSERT INTO words (word_list_id, word_text, display_order) VALUES ($1, $2, $3) RETURNING id',
+      [word_list_id, word_text, displayOrder]
+    );
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error('単語追加エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
 });
 
 // 単語削除API
-app.delete('/api/words/:id', (req, res) => {
-  const stmt = db.prepare('DELETE FROM words WHERE id = ?');
-  stmt.run(req.params.id);
-  res.json({ success: true });
+app.delete('/api/words/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM words WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('単語削除エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
 });
 
 // 単語ファイルアップロード用のMulter設定
@@ -244,19 +307,32 @@ app.post('/api/word-lists/:id/import', documentUpload.single('documentFile'), as
     }
 
     // 最大のdisplay_orderを取得
-    const maxOrder = db.prepare('SELECT MAX(display_order) as max FROM words WHERE word_list_id = ?').get(wordListId);
-    let displayOrder = (maxOrder.max || 0) + 1;
+    const maxOrderResult = await pool.query(
+      'SELECT MAX(display_order) as max FROM words WHERE word_list_id = $1',
+      [wordListId]
+    );
+    let displayOrder = (maxOrderResult.rows[0].max || 0) + 1;
 
-    // 単語をデータベースに追加
-    const insertStmt = db.prepare('INSERT INTO words (word_list_id, word_text, display_order) VALUES (?, ?, ?)');
-    const insertTransaction = db.transaction((wordsList) => {
-      for (const word of wordsList) {
-        insertStmt.run(wordListId, word, displayOrder);
+    // 単語をデータベースに追加（トランザクション使用）
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const word of words) {
+        await client.query(
+          'INSERT INTO words (word_list_id, word_text, display_order) VALUES ($1, $2, $3)',
+          [wordListId, word, displayOrder]
+        );
         displayOrder++;
       }
-    });
 
-    insertTransaction(words);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
 
     // アップロードファイル削除
     fs.unlinkSync(filePath);
@@ -281,13 +357,18 @@ app.get('/fonts', (req, res) => {
 });
 
 // フォント一覧取得API
-app.get('/api/fonts', (req, res) => {
-  const fonts = db.prepare('SELECT * FROM fonts WHERE is_active = 1 ORDER BY font_type, name').all();
-  res.json(fonts);
+app.get('/api/fonts', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM fonts WHERE is_active = true ORDER BY font_type, name');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('フォント一覧取得エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
 });
 
 // フォントアップロードAPI
-app.post('/api/fonts/upload', upload.single('fontFile'), (req, res) => {
+app.post('/api/fonts/upload', upload.single('fontFile'), async (req, res) => {
   console.log('[DEBUG] フォントアップロード開始:', req.file);
 
   if (!req.file) {
@@ -305,11 +386,13 @@ app.post('/api/fonts/upload', upload.single('fontFile'), (req, res) => {
   const fontFamily = `'${fontName}'`;
 
   try {
-    const stmt = db.prepare('INSERT INTO fonts (name, font_family, font_type, file_path) VALUES (?, ?, ?, ?)');
-    const result = stmt.run(fontName, fontFamily, 'custom', fontPath);
+    const result = await pool.query(
+      'INSERT INTO fonts (name, font_family, font_type, file_path) VALUES ($1, $2, $3, $4) RETURNING id',
+      [fontName, fontFamily, 'custom', fontPath]
+    );
 
-    console.log('[SUCCESS] フォント登録完了:', { id: result.lastInsertRowid, fontName });
-    res.json({ success: true, id: result.lastInsertRowid, fontPath });
+    console.log('[SUCCESS] フォント登録完了:', { id: result.rows[0].id, fontName });
+    res.json({ success: true, id: result.rows[0].id, fontPath });
   } catch (error) {
     console.error('[ERROR] フォント登録失敗:', error);
     // エラー時はファイルを削除
@@ -319,41 +402,61 @@ app.post('/api/fonts/upload', upload.single('fontFile'), (req, res) => {
 });
 
 // フォント削除API
-app.delete('/api/fonts/:id', (req, res) => {
+app.delete('/api/fonts/:id', async (req, res) => {
   console.log('[DEBUG] フォント削除:', req.params.id);
 
-  const font = db.prepare('SELECT * FROM fonts WHERE id = ?').get(req.params.id);
+  try {
+    const fontResult = await pool.query('SELECT * FROM fonts WHERE id = $1', [req.params.id]);
 
-  if (!font) {
-    return res.status(404).json({ success: false, message: 'フォントが見つかりません' });
-  }
-
-  // カスタムフォントの場合はファイルも削除
-  if (font.font_type === 'custom' && font.file_path) {
-    const filePath = path.join(__dirname, 'public', font.file_path);
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-      console.log('[DEBUG] フォントファイル削除:', filePath);
+    if (fontResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'フォントが見つかりません' });
     }
+
+    const font = fontResult.rows[0];
+
+    // カスタムフォントの場合はファイルも削除
+    if (font.font_type === 'custom' && font.file_path) {
+      const filePath = path.join(__dirname, 'public', font.file_path);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log('[DEBUG] フォントファイル削除:', filePath);
+      }
+    }
+
+    await pool.query('DELETE FROM fonts WHERE id = $1', [req.params.id]);
+
+    console.log('[SUCCESS] フォント削除完了:', font.name);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('フォント削除エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
   }
-
-  const stmt = db.prepare('DELETE FROM fonts WHERE id = ?');
-  stmt.run(req.params.id);
-
-  console.log('[SUCCESS] フォント削除完了:', font.name);
-  res.json({ success: true });
 });
 
 // ======== 読み上げテスト ========
 
 // テスト実施画面
-app.get('/test/:childId/:wordListId', (req, res) => {
-  const child = db.prepare('SELECT * FROM children WHERE id = ?').get(req.params.childId);
-  const wordList = db.prepare('SELECT * FROM word_lists WHERE id = ?').get(req.params.wordListId);
-  const words = db.prepare('SELECT * FROM words WHERE word_list_id = ? ORDER BY display_order').all(req.params.wordListId);
-  const fonts = db.prepare('SELECT * FROM fonts WHERE is_active = 1 ORDER BY font_type, name').all();
+app.get('/test/:childId/:wordListId', async (req, res) => {
+  try {
+    const childResult = await pool.query('SELECT * FROM children WHERE id = $1', [req.params.childId]);
+    const wordListResult = await pool.query('SELECT * FROM word_lists WHERE id = $1', [req.params.wordListId]);
+    const wordsResult = await pool.query('SELECT * FROM words WHERE word_list_id = $1 ORDER BY display_order', [req.params.wordListId]);
+    const fontsResult = await pool.query('SELECT * FROM fonts WHERE is_active = true ORDER BY font_type, name');
 
-  res.render('test', { child, wordList, words, fonts });
+    if (childResult.rows.length === 0 || wordListResult.rows.length === 0) {
+      return res.status(404).send('データが見つかりません');
+    }
+
+    res.render('test', {
+      child: childResult.rows[0],
+      wordList: wordListResult.rows[0],
+      words: wordsResult.rows,
+      fonts: fontsResult.rows
+    });
+  } catch (error) {
+    console.error('テスト画面取得エラー:', error);
+    res.status(500).send('エラーが発生しました');
+  }
 });
 
 // テスト結果記録API
@@ -362,86 +465,110 @@ app.post('/api/reading-records', async (req, res) => {
 
   console.log('[DEBUG] テスト結果記録:', { child_id, word_id, could_read, reading_time_seconds, font_id });
 
-  const stmt = db.prepare(`
-    INSERT INTO reading_records (child_id, word_id, could_read, reading_time_seconds, misread_as, notes, font_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const result = stmt.run(child_id, word_id, could_read, reading_time_seconds, misread_as, notes, font_id);
-
-  console.log('[SUCCESS] テスト結果記録完了:', result.lastInsertRowid);
-
-  // Firebaseにも保存（追加情報を取得して送信）
   try {
-    const recordDetails = db.prepare(`
-      SELECT
-        c.name as child_name,
-        c.grade as child_grade,
-        w.word_text,
-        wl.name as word_list_name,
-        f.name as font_name
-      FROM children c
-      JOIN words w ON w.id = ?
-      JOIN word_lists wl ON w.word_list_id = wl.id
-      LEFT JOIN fonts f ON f.id = ?
-      WHERE c.id = ?
-    `).get(word_id, font_id, child_id);
+    const result = await pool.query(
+      `INSERT INTO reading_records (child_id, word_id, could_read, reading_time_seconds, misread_as, notes, font_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [child_id, word_id, could_read, reading_time_seconds, misread_as, notes, font_id]
+    );
 
-    if (recordDetails) {
-      await saveReadingRecordToFirebase({
-        ...recordDetails,
-        could_read,
-        reading_time_seconds,
-        misread_as,
-        notes
-      });
+    console.log('[SUCCESS] テスト結果記録完了:', result.rows[0].id);
+
+    // Firebaseにも保存（追加情報を取得して送信）
+    try {
+      const recordDetailsResult = await pool.query(
+        `SELECT
+          c.name as child_name,
+          c.grade as child_grade,
+          w.word_text,
+          wl.name as word_list_name,
+          f.name as font_name
+        FROM children c
+        JOIN words w ON w.id = $1
+        JOIN word_lists wl ON w.word_list_id = wl.id
+        LEFT JOIN fonts f ON f.id = $2
+        WHERE c.id = $3`,
+        [word_id, font_id, child_id]
+      );
+
+      if (recordDetailsResult.rows.length > 0) {
+        const recordDetails = recordDetailsResult.rows[0];
+        await saveReadingRecordToFirebase({
+          ...recordDetails,
+          could_read,
+          reading_time_seconds,
+          misread_as,
+          notes
+        });
+      }
+    } catch (error) {
+      console.error('[ERROR] Firebase保存エラー:', error.message);
+      // エラーが発生してもローカルDBには保存されているので続行
     }
-  } catch (error) {
-    console.error('[ERROR] Firebase保存エラー:', error.message);
-    // エラーが発生してもローカルDBには保存されているので続行
-  }
 
-  res.json({ success: true, id: result.lastInsertRowid });
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error('テスト結果記録エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
 });
 
 // ======== データ分析 ========
 
 // データ閲覧・分析画面
-app.get('/analysis', (req, res) => {
-  const children = db.prepare('SELECT * FROM children ORDER BY name').all();
-  res.render('analysis', { children });
+app.get('/analysis', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM children ORDER BY name');
+    res.render('analysis', { children: result.rows });
+  } catch (error) {
+    console.error('分析画面取得エラー:', error);
+    res.status(500).send('エラーが発生しました');
+  }
 });
 
 // 児童別の成績データ取得API
-app.get('/api/analysis/:childId', (req, res) => {
-  const records = db.prepare(`
-    SELECT
-      rr.id,
-      rr.test_date,
-      w.word_text,
-      wl.name as word_list_name,
-      rr.could_read,
-      rr.reading_time_seconds,
-      rr.misread_as,
-      rr.notes
-    FROM reading_records rr
-    JOIN words w ON rr.word_id = w.id
-    JOIN word_lists wl ON w.word_list_id = wl.id
-    WHERE rr.child_id = ?
-    ORDER BY rr.test_date DESC
-  `).all(req.params.childId);
+app.get('/api/analysis/:childId', async (req, res) => {
+  try {
+    const recordsResult = await pool.query(
+      `SELECT
+        rr.id,
+        rr.test_date,
+        w.word_text,
+        wl.name as word_list_name,
+        rr.could_read,
+        rr.reading_time_seconds,
+        rr.misread_as,
+        rr.notes,
+        rr.font_id,
+        f.name as font_name
+      FROM reading_records rr
+      JOIN words w ON rr.word_id = w.id
+      JOIN word_lists wl ON w.word_list_id = wl.id
+      LEFT JOIN fonts f ON rr.font_id = f.id
+      WHERE rr.child_id = $1
+      ORDER BY rr.test_date DESC`,
+      [req.params.childId]
+    );
 
-  const stats = db.prepare(`
-    SELECT
-      COUNT(*) as total_tests,
-      SUM(could_read) as successful_reads,
-      AVG(reading_time_seconds) as avg_time,
-      COUNT(CASE WHEN misread_as IS NOT NULL THEN 1 END) as misread_count
-    FROM reading_records
-    WHERE child_id = ?
-  `).get(req.params.childId);
+    const statsResult = await pool.query(
+      `SELECT
+        COUNT(*) as total_tests,
+        SUM(CASE WHEN could_read THEN 1 ELSE 0 END) as successful_reads,
+        AVG(reading_time_seconds) as avg_time,
+        COUNT(CASE WHEN misread_as IS NOT NULL THEN 1 END) as misread_count
+      FROM reading_records
+      WHERE child_id = $1`,
+      [req.params.childId]
+    );
 
-  res.json({ records, stats });
+    res.json({
+      records: recordsResult.rows,
+      stats: statsResult.rows[0]
+    });
+  } catch (error) {
+    console.error('分析データ取得エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
 });
 
 app.listen(PORT, () => {

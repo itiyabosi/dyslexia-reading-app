@@ -120,6 +120,25 @@
             <p>テスト実施日数</p>
           </div>
         </div>
+
+        <div class="stats-grid">
+          <div class="stat-card" style="background-color: #e0f2f1;">
+            <h3 id="consistencyScore" style="color: #00796B;">-</h3>
+            <p>一貫性スコア</p>
+          </div>
+          <div class="stat-card" style="background-color: #fff8e1;">
+            <h3 id="learningSlope" style="color: #F9A825;">-</h3>
+            <p>学習曲線の傾き</p>
+          </div>
+          <div class="stat-card" style="background-color: #fbe9e7;">
+            <h3 id="bestFont" style="color: #D84315;">-</h3>
+            <p>最適フォント</p>
+          </div>
+          <div class="stat-card" style="background-color: #f1f8e9;">
+            <h3 id="improvementRate" style="color: #689F38;">-</h3>
+            <p>総合改善率</p>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -172,6 +191,19 @@
       </div>
 
       <div class="card">
+        <h2>🔤 フォント別成績比較</h2>
+        <p style="color: #666; margin-bottom: 15px;">各フォントでの正答率と平均読み時間を比較</p>
+        <div class="chart-container" style="height: 400px;">
+          <canvas id="fontComparisonChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>📊 フォント別詳細統計</h2>
+        <div id="fontStatsTable"></div>
+      </div>
+
+      <div class="card">
         <h2>📋 詳細テスト履歴</h2>
         <div id="recordsTable"></div>
       </div>
@@ -221,8 +253,28 @@
       document.getElementById('slowestTime').textContent = times.length > 0 ? Math.max(...times).toFixed(2) : '-';
 
       // テスト実施日数
-      const uniqueDays = new Set(data.records.map(r => r.test_date.split('T')[0]));
+      const uniqueDays = new Set(data.records.map(r => {
+        // SQLiteの日付形式（YYYY-MM-DD HH:MM:SS）とISO形式（YYYY-MM-DDTHH:MM:SS）両方に対応
+        return r.test_date.substring(0, 10);
+      }));
       document.getElementById('testDays').textContent = uniqueDays.size;
+
+      // 新機能: 一貫性スコア
+      const consistencyScore = calculateConsistencyScore(data.records);
+      document.getElementById('consistencyScore').textContent = consistencyScore;
+
+      // 新機能: 学習曲線の傾き
+      const learningSlope = calculateLearningSlope(data.records);
+      document.getElementById('learningSlope').textContent = learningSlope;
+
+      // 新機能: フォント別統計
+      const fontStats = calculateFontStats(data.records);
+      const bestFont = findBestFont(fontStats);
+      document.getElementById('bestFont').textContent = bestFont;
+
+      // 新機能: 総合改善率
+      const improvementRate = calculateImprovementRate(data.records);
+      document.getElementById('improvementRate').textContent = improvementRate;
 
       // グラフ描画
       drawCharts(data);
@@ -232,6 +284,9 @@
 
       // 新しい分析機能
       drawImprovementAnalysis(data.records);
+
+      // フォント別分析
+      drawFontComparison(data.records, fontStats);
 
       statsArea.style.display = 'block';
     });
@@ -435,6 +490,7 @@
         '<th>日時</th>' +
         '<th>単語リスト</th>' +
         '<th>単語</th>' +
+        '<th>フォント</th>' +
         '<th>結果</th>' +
         '<th>読み時間（秒）</th>' +
         '<th>読み間違い</th>' +
@@ -452,6 +508,7 @@
           '<td>' + dateStr + '</td>' +
           '<td>' + record.word_list_name + '</td>' +
           '<td style="font-weight: bold; font-size: 18px;">' + record.word_text + '</td>' +
+          '<td>' + (record.font_name || '-') + '</td>' +
           '<td style="' + resultStyle + '">' + result + '</td>' +
           '<td>' + (record.reading_time_seconds ? record.reading_time_seconds.toFixed(2) : '-') + '</td>' +
           '<td>' + (record.misread_as || '-') + '</td>' +
@@ -621,6 +678,319 @@
           '<td>' + item.testCount + '</td>' +
           '<td>' + item.successRate.toFixed(0) + '%</td>' +
           '<td>' + action + '</td>' +
+          '</tr>';
+      });
+
+      tableHtml += '</tbody></table>';
+      container.innerHTML = tableHtml;
+    }
+
+    // ========== 新機能: 一貫性スコアの計算 ==========
+    function calculateConsistencyScore(records) {
+      // 同じ単語を複数回テストした場合の正答率の一貫性を測定
+      const wordData = {};
+
+      records.forEach(record => {
+        if (!wordData[record.word_text]) {
+          wordData[record.word_text] = [];
+        }
+        wordData[record.word_text].push(record.could_read);
+      });
+
+      // 2回以上テストした単語のみを対象
+      const consistencyScores = [];
+      Object.keys(wordData).forEach(word => {
+        const results = wordData[word];
+        if (results.length >= 2) {
+          // 標準偏差を計算
+          const mean = results.reduce((sum, val) => sum + val, 0) / results.length;
+          const variance = results.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / results.length;
+          const stdDev = Math.sqrt(variance);
+
+          // 一貫性スコア = 1 - 標準偏差（0-1の範囲で、1に近いほど一貫性が高い）
+          const consistency = 1 - stdDev;
+          consistencyScores.push(consistency);
+        }
+      });
+
+      if (consistencyScores.length === 0) {
+        return '-';
+      }
+
+      // 全単語の平均一貫性スコア
+      const avgConsistency = consistencyScores.reduce((sum, score) => sum + score, 0) / consistencyScores.length;
+      return (avgConsistency * 100).toFixed(1) + '%';
+    }
+
+    // ========== 新機能: 学習曲線の傾きの計算 ==========
+    function calculateLearningSlope(records) {
+      // 時系列での読み時間の改善速度を線形回帰で計算
+      const timeData = records
+        .filter(r => r.reading_time_seconds)
+        .slice()
+        .reverse(); // 古い順にソート
+
+      if (timeData.length < 2) {
+        return '-';
+      }
+
+      // 線形回帰: y = ax + b
+      const n = timeData.length;
+      const x = Array.from({ length: n }, (_, i) => i + 1); // テスト回数
+      const y = timeData.map(r => r.reading_time_seconds);
+
+      const sumX = x.reduce((sum, val) => sum + val, 0);
+      const sumY = y.reduce((sum, val) => sum + val, 0);
+      const sumXY = x.reduce((sum, val, i) => sum + val * y[i], 0);
+      const sumX2 = x.reduce((sum, val) => sum + val * val, 0);
+
+      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+
+      // 傾きが負 = 改善、正 = 悪化
+      if (slope < -0.01) {
+        return '↓ ' + Math.abs(slope).toFixed(3) + '秒/回';
+      } else if (slope > 0.01) {
+        return '↑ ' + slope.toFixed(3) + '秒/回';
+      } else {
+        return '→ 横ばい';
+      }
+    }
+
+    // ========== 新機能: フォント別統計の計算 ==========
+    function calculateFontStats(records) {
+      const fontData = {};
+
+      records.forEach(record => {
+        const fontName = record.font_name || 'フォント未指定';
+
+        if (!fontData[fontName]) {
+          fontData[fontName] = {
+            total: 0,
+            success: 0,
+            totalTime: 0,
+            timeCount: 0,
+            times: []
+          };
+        }
+
+        fontData[fontName].total++;
+        if (record.could_read) {
+          fontData[fontName].success++;
+        }
+        if (record.reading_time_seconds) {
+          fontData[fontName].totalTime += record.reading_time_seconds;
+          fontData[fontName].timeCount++;
+          fontData[fontName].times.push(record.reading_time_seconds);
+        }
+      });
+
+      // 統計を計算
+      Object.keys(fontData).forEach(fontName => {
+        const data = fontData[fontName];
+        data.successRate = (data.success / data.total * 100).toFixed(1);
+        data.avgTime = data.timeCount > 0 ? (data.totalTime / data.timeCount).toFixed(2) : null;
+
+        // 中央値を計算
+        if (data.times.length > 0) {
+          const sorted = data.times.slice().sort((a, b) => a - b);
+          const mid = Math.floor(sorted.length / 2);
+          data.medianTime = sorted.length % 2 === 0
+            ? ((sorted[mid - 1] + sorted[mid]) / 2).toFixed(2)
+            : sorted[mid].toFixed(2);
+        } else {
+          data.medianTime = null;
+        }
+      });
+
+      return fontData;
+    }
+
+    // ========== 新機能: 最適フォントの判定 ==========
+    function findBestFont(fontStats) {
+      const fonts = Object.keys(fontStats);
+
+      if (fonts.length === 0) {
+        return '-';
+      }
+
+      // 正答率が最も高いフォントを選択（同率の場合は読み時間が短い方）
+      let bestFont = fonts[0];
+      let bestScore = parseFloat(fontStats[bestFont].successRate);
+      let bestTime = fontStats[bestFont].avgTime ? parseFloat(fontStats[bestFont].avgTime) : Infinity;
+
+      fonts.forEach(fontName => {
+        const score = parseFloat(fontStats[fontName].successRate);
+        const time = fontStats[fontName].avgTime ? parseFloat(fontStats[fontName].avgTime) : Infinity;
+
+        if (score > bestScore || (score === bestScore && time < bestTime)) {
+          bestFont = fontName;
+          bestScore = score;
+          bestTime = time;
+        }
+      });
+
+      return bestFont;
+    }
+
+    // ========== 新機能: 総合改善率の計算 ==========
+    function calculateImprovementRate(records) {
+      const timeData = records
+        .filter(r => r.reading_time_seconds)
+        .slice()
+        .reverse(); // 古い順にソート
+
+      if (timeData.length < 2) {
+        return '-';
+      }
+
+      // 初回10回（または全体の前半）と最新10回（または全体の後半）を比較
+      const splitPoint = Math.floor(timeData.length / 2);
+      const firstHalf = timeData.slice(0, splitPoint);
+      const secondHalf = timeData.slice(splitPoint);
+
+      const firstAvg = firstHalf.reduce((sum, r) => sum + r.reading_time_seconds, 0) / firstHalf.length;
+      const secondAvg = secondHalf.reduce((sum, r) => sum + r.reading_time_seconds, 0) / secondHalf.length;
+
+      const improvementPercent = ((firstAvg - secondAvg) / firstAvg * 100);
+
+      if (improvementPercent > 0) {
+        return '↓ ' + improvementPercent.toFixed(1) + '%';
+      } else if (improvementPercent < 0) {
+        return '↑ ' + Math.abs(improvementPercent).toFixed(1) + '%';
+      } else {
+        return '→ 0%';
+      }
+    }
+
+    // ========== 新機能: フォント別グラフ描画 ==========
+    function drawFontComparison(records, fontStats) {
+      const fontNames = Object.keys(fontStats);
+
+      if (fontNames.length === 0) {
+        document.getElementById('fontStatsTable').innerHTML = '<p style="color: #999;">フォント情報が記録されていません。</p>';
+        return;
+      }
+
+      // フォント別グラフ（複合グラフ: 正答率と平均読み時間）
+      const successRates = fontNames.map(name => parseFloat(fontStats[name].successRate));
+      const avgTimes = fontNames.map(name => fontStats[name].avgTime ? parseFloat(fontStats[name].avgTime) : 0);
+
+      charts.fontComparison = new Chart(document.getElementById('fontComparisonChart'), {
+        type: 'bar',
+        data: {
+          labels: fontNames,
+          datasets: [
+            {
+              label: '正答率（%）',
+              data: successRates,
+              backgroundColor: 'rgba(76, 175, 80, 0.6)',
+              borderColor: 'rgba(76, 175, 80, 1)',
+              borderWidth: 2,
+              yAxisID: 'y'
+            },
+            {
+              label: '平均読み時間（秒）',
+              data: avgTimes,
+              backgroundColor: 'rgba(255, 152, 0, 0.6)',
+              borderColor: 'rgba(255, 152, 0, 1)',
+              borderWidth: 2,
+              type: 'line',
+              yAxisID: 'y1'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              beginAtZero: true,
+              max: 100,
+              title: {
+                display: true,
+                text: '正答率（%）'
+              }
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: '平均読み時間（秒）'
+              },
+              grid: {
+                drawOnChartArea: false
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'top'
+            }
+          }
+        }
+      });
+
+      // フォント別詳細統計テーブル
+      drawFontStatsTable(fontStats);
+    }
+
+    // ========== 新機能: フォント別統計テーブル ==========
+    function drawFontStatsTable(fontStats) {
+      const container = document.getElementById('fontStatsTable');
+      const fontNames = Object.keys(fontStats);
+
+      if (fontNames.length === 0) {
+        container.innerHTML = '<p style="color: #999;">フォント情報が記録されていません。</p>';
+        return;
+      }
+
+      // 正答率でソート（降順）
+      fontNames.sort((a, b) => parseFloat(fontStats[b].successRate) - parseFloat(fontStats[a].successRate));
+
+      let tableHtml = '<table><thead><tr>' +
+        '<th>順位</th>' +
+        '<th>フォント名</th>' +
+        '<th>テスト回数</th>' +
+        '<th>正答率</th>' +
+        '<th>平均読み時間</th>' +
+        '<th>中央値</th>' +
+        '<th>評価</th>' +
+        '</tr></thead><tbody>';
+
+      fontNames.forEach((fontName, index) => {
+        const data = fontStats[fontName];
+        const successRate = parseFloat(data.successRate);
+
+        // 評価の判定
+        let evaluation, evalStyle;
+        if (successRate >= 80) {
+          evaluation = '⭐⭐⭐ 優秀';
+          evalStyle = 'background-color: #e8f5e9; color: #2e7d32; font-weight: bold;';
+        } else if (successRate >= 60) {
+          evaluation = '⭐⭐ 良好';
+          evalStyle = 'background-color: #fff8e1; color: #f9a825;';
+        } else if (successRate >= 40) {
+          evaluation = '⭐ 要改善';
+          evalStyle = 'background-color: #fff3e0; color: #e65100;';
+        } else {
+          evaluation = '⚠️ 不適合';
+          evalStyle = 'background-color: #ffebee; color: #c62828; font-weight: bold;';
+        }
+
+        tableHtml += '<tr>' +
+          '<td>' + (index + 1) + '</td>' +
+          '<td style="font-weight: bold; font-size: 16px;">' + fontName + '</td>' +
+          '<td>' + data.total + '</td>' +
+          '<td style="font-weight: bold; color: #0277BD;">' + data.successRate + '%</td>' +
+          '<td>' + (data.avgTime || '-') + '秒</td>' +
+          '<td>' + (data.medianTime || '-') + '秒</td>' +
+          '<td style="' + evalStyle + '">' + evaluation + '</td>' +
           '</tr>';
       });
 
