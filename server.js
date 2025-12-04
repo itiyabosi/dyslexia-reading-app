@@ -435,7 +435,7 @@ app.get('/fonts', (req, res) => {
 // フォント一覧取得API
 app.get('/api/fonts', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM fonts WHERE is_active = true ORDER BY font_type, name');
+    const result = await pool.query('SELECT * FROM fonts WHERE is_active = 1 ORDER BY font_type, name');
     res.json(result.rows);
   } catch (error) {
     console.error('フォント一覧取得エラー:', error);
@@ -517,7 +517,7 @@ app.get('/test/:childId/:wordListId', async (req, res) => {
     const childResult = await pool.query('SELECT * FROM children WHERE id = $1', [req.params.childId]);
     const wordListResult = await pool.query('SELECT * FROM word_lists WHERE id = $1', [req.params.wordListId]);
     const wordsResult = await pool.query('SELECT * FROM words WHERE word_list_id = $1 ORDER BY display_order', [req.params.wordListId]);
-    const fontsResult = await pool.query('SELECT * FROM fonts WHERE is_active = true ORDER BY font_type, name');
+    const fontsResult = await pool.query('SELECT * FROM fonts WHERE is_active = 1 ORDER BY font_type, name');
 
     if (childResult.rows.length === 0 || wordListResult.rows.length === 0) {
       return res.status(404).send('データが見つかりません');
@@ -532,6 +532,8 @@ app.get('/test/:childId/:wordListId', async (req, res) => {
     });
   } catch (error) {
     console.error('テスト画面取得エラー:', error);
+    console.error('エラー詳細:', error.message);
+    console.error('childId:', req.params.childId, 'wordListId:', req.params.wordListId);
     res.status(500).send('エラーが発生しました');
   }
 });
