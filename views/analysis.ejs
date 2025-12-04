@@ -251,12 +251,8 @@
       document.getElementById('fastestTime').textContent = times.length > 0 ? Math.min(...times).toFixed(2) : '-';
       document.getElementById('slowestTime').textContent = times.length > 0 ? Math.max(...times).toFixed(2) : '-';
 
-      // テスト実施日数
-      const uniqueDays = new Set(data.records.map(r => {
-        // SQLiteの日付形式（YYYY-MM-DD HH:MM:SS）とISO形式（YYYY-MM-DDTHH:MM:SS）両方に対応
-        return r.test_date.substring(0, 10);
-      }));
-      document.getElementById('testDays').textContent = uniqueDays.size;
+      // テスト実施日数（サーバー側で計算済み）
+      document.getElementById('testDays').textContent = data.stats.test_days || 0;
 
       // 新機能: 一貫性スコア
       const consistencyScore = calculateConsistencyScore(data.records);

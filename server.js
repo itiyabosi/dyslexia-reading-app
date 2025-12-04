@@ -601,7 +601,8 @@ app.get('/api/analysis/:childId', async (req, res) => {
         COUNT(*) as total_tests,
         SUM(CASE WHEN could_read THEN 1 ELSE 0 END) as successful_reads,
         AVG(reading_time_seconds) as avg_time,
-        COUNT(CASE WHEN misread_as IS NOT NULL THEN 1 END) as misread_count
+        COUNT(CASE WHEN misread_as IS NOT NULL THEN 1 END) as misread_count,
+        COUNT(DISTINCT DATE(test_date)) as test_days
       FROM reading_records
       WHERE child_id = $1`,
       [req.params.childId]
