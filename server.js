@@ -5,6 +5,7 @@ const multer = require('multer');
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
+const { execSync } = require('child_process');
 const { pool, initDatabase, insertSampleData } = require('./database');
 const { saveReadingRecordToFirebase } = require('./firebaseService');
 require('dotenv').config();
@@ -12,6 +13,15 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 const PASSWORD = '000000'; // アプリのパスワード
+
+// Gitコミットハッシュを取得
+let COMMIT_HASH = 'unknown';
+try {
+  COMMIT_HASH = execSync('git rev-parse --short HEAD').toString().trim();
+  console.log(`現在のコミット: ${COMMIT_HASH}`);
+} catch (error) {
+  console.warn('Gitコミットハッシュの取得に失敗しました:', error.message);
+}
 
 // Multer設定（フォントファイルアップロード用）
 const storage = multer.diskStorage({
@@ -70,7 +80,7 @@ app.use(session({
 
 // ログイン画面表示
 app.get('/login', (req, res) => {
-  res.render('login', { error: null });
+  res.render('login', { error: null, commitHash: COMMIT_HASH });
 });
 
 // ログイン処理
@@ -81,7 +91,7 @@ app.post('/login', (req, res) => {
     req.session.authenticated = true;
     res.redirect('/');
   } else {
-    res.render('login', { error: 'パスワードが正しくありません' });
+    res.render('login', { error: 'パスワードが正しくありません', commitHash: COMMIT_HASH });
   }
 });
 
@@ -112,7 +122,7 @@ app.use((req, res, next) => {
 app.get('/', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM children ORDER BY created_at DESC');
-    res.render('index', { children: result.rows });
+    res.render('index', { children: result.rows, commitHash: COMMIT_HASH });
   } catch (error) {
     console.error('児童一覧取得エラー:', error);
     res.status(500).send('エラーが発生しました');
@@ -151,7 +161,7 @@ app.delete('/api/children/:id', async (req, res) => {
 app.get('/word-lists', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM word_lists ORDER BY created_at DESC');
-    res.render('word-lists', { wordLists: result.rows });
+    res.render('word-lists', { wordLists: result.rows, commitHash: COMMIT_HASH });
   } catch (error) {
     console.error('単語リスト取得エラー:', error);
     res.status(500).send('エラーが発生しました');
@@ -168,7 +178,7 @@ app.get('/word-lists/:id', async (req, res) => {
       return res.status(404).send('単語リストが見つかりません');
     }
 
-    res.render('word-list-detail', { wordList: wordListResult.rows[0], words: wordsResult.rows });
+    res.render('word-list-detail', { wordList: wordListResult.rows[0], words: wordsResult.rows, commitHash: COMMIT_HASH });
   } catch (error) {
     console.error('単語リスト詳細取得エラー:', error);
     res.status(500).send('エラーが発生しました');
@@ -399,7 +409,7 @@ app.post('/api/word-lists/:id/import', documentUpload.single('documentFile'), as
 
 // フォント管理画面
 app.get('/fonts', (req, res) => {
-  res.render('fonts');
+  res.render('fonts', { commitHash: COMMIT_HASH });
 });
 
 // フォント一覧取得API
@@ -497,7 +507,8 @@ app.get('/test/:childId/:wordListId', async (req, res) => {
       child: childResult.rows[0],
       wordList: wordListResult.rows[0],
       words: wordsResult.rows,
-      fonts: fontsResult.rows
+      fonts: fontsResult.rows,
+      commitHash: COMMIT_HASH
     });
   } catch (error) {
     console.error('テスト画面取得エラー:', error);
@@ -565,7 +576,7 @@ app.post('/api/reading-records', async (req, res) => {
 app.get('/analysis', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM children ORDER BY name');
-    res.render('analysis', { children: result.rows });
+    res.render('analysis', { children: result.rows, commitHash: COMMIT_HASH });
   } catch (error) {
     console.error('分析画面取得エラー:', error);
     res.status(500).send('エラーが発生しました');

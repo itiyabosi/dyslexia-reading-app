@@ -22,6 +22,7 @@ header {
   color: white;
   padding: 20px 0;
   margin-bottom: 30px;
+  position: relative;
 }
 
 header h1 {
