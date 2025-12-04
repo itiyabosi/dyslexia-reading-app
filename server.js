@@ -58,8 +58,9 @@ const upload = multer({
 (async () => {
   try {
     console.log('=== データベース初期化開始 ===');
-    console.log('DATABASE_URL:', process.env.DATABASE_URL ? '設定済み' : '未設定');
+    console.log('DATABASE_URL:', process.env.DATABASE_URL ? '設定済み ✓' : '未設定 ✗');
     console.log('NODE_ENV:', process.env.NODE_ENV);
+    console.log('RENDER_GIT_COMMIT:', process.env.RENDER_GIT_COMMIT ? process.env.RENDER_GIT_COMMIT.substring(0, 7) : 'N/A');
 
     await initDatabase();
     console.log('✓ データベーステーブル作成完了');
