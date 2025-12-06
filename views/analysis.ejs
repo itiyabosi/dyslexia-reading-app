@@ -80,8 +80,9 @@
         <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;" id="reportDate"></p>
       </div>
 
-      <div style="text-align: center; margin-bottom: 20px;">
+      <div style="text-align: center; margin-bottom: 20px; display: flex; gap: 10px; justify-content: center;">
         <button class="print-btn" onclick="window.print()">📄 印刷・PDF保存</button>
+        <button class="btn btn-success" onclick="exportToCSV()">📊 CSVエクスポート</button>
       </div>
 
       <div class="card">
@@ -234,6 +235,7 @@
 
       if (!childId) {
         statsArea.style.display = 'none';
+        currentData = null; // データをクリア
         return;
       }
 
@@ -248,6 +250,9 @@
 
       const response = await fetch('/api/analysis/' + childId);
       const data = await response.json();
+
+      // データを保存（CSVエクスポート用）
+      currentData = data;
 
       // 統計表示
       document.getElementById('totalTests').textContent = data.stats.total_tests || 0;
@@ -1318,6 +1323,48 @@
 
       html += '</div>';
       container.innerHTML = html;
+    }
+
+    // CSVエクスポート機能
+    let currentData = null; // 現在のデータを保持
+
+    function exportToCSV() {
+      if (!currentData || !currentData.records || currentData.records.length === 0) {
+        alert('エクスポートするデータがありません');
+        return;
+      }
+
+      const childName = document.getElementById('reportTitle').textContent.replace(' さんの成績表', '');
+      const date = new Date().toISOString().split('T')[0];
+
+      // CSVヘッダー
+      let csv = '\uFEFF'; // BOM for Excel UTF-8 support
+      csv += '児童名,テスト日時,単語,単語リスト,読めたか,読み時間(秒),読み間違え,備考,フォント\n';
+
+      // データ行
+      currentData.records.forEach(record => {
+        const testDate = new Date(record.test_date).toLocaleString('ja-JP');
+        const couldRead = record.could_read == 1 ? '読めた' : '読めなかった';
+        const readingTime = record.reading_time_seconds ? record.reading_time_seconds.toFixed(2) : '';
+        const misread = (record.misread_as || '').replace(/"/g, '""');
+        const notes = (record.notes || '').replace(/"/g, '""');
+        const font = record.font_name || '';
+
+        csv += `"${childName}","${testDate}","${record.word_text}","${record.word_list_name}","${couldRead}","${readingTime}","${misread}","${notes}","${font}"\n`;
+      });
+
+      // ダウンロード
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${childName}_テスト結果_${date}.csv`);
+      link.style.visibility = 'hidden';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   </script>
 </body>
