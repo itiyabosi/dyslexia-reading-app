@@ -146,6 +146,29 @@
       </div>
 
       <div class="card">
+        <h2>📈 相関分析</h2>
+        <p style="color: #666; margin-bottom: 15px;">各要素間の相関係数（-1から1の範囲、1に近いほど正の相関が強い）</p>
+        <div class="stats-grid">
+          <div class="stat-card" style="background-color: #e8eaf6;">
+            <h3 id="timeSuccessCorrelation" style="color: #3949AB;">-</h3>
+            <p>読み時間 × 正答率</p>
+          </div>
+          <div class="stat-card" style="background-color: #f3e5f5;">
+            <h3 id="practiceSuccessCorrelation" style="color: #6A1B9A;">-</h3>
+            <p>練習回数 × 正答率</p>
+          </div>
+          <div class="stat-card" style="background-color: #e0f7fa;">
+            <h3 id="wordLengthSuccessCorrelation" style="color: #00838F;">-</h3>
+            <p>単語長 × 正答率</p>
+          </div>
+          <div class="stat-card" style="background-color: #fce4ec;">
+            <h3 id="timeProgressCorrelation" style="color: #C2185B;">-</h3>
+            <p>テスト順序 × 読み時間</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <h2>📊 単語リスト別正答率</h2>
         <p style="color: #666; margin-bottom: 15px;">各単語セットでの正答率と詳細統計</p>
         <div id="wordSetAccuracyTable"></div>
@@ -290,6 +313,9 @@
       // 新機能: 総合改善率
       const improvementRate = calculateImprovementRate(data.records);
       document.getElementById('improvementRate').textContent = improvementRate;
+
+      // 相関係数の計算
+      calculateCorrelations(data.records);
 
       // グラフ描画
       drawCharts(data);
@@ -1365,6 +1391,111 @@
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    }
+
+    // ========== 相関係数計算 ==========
+    function calculatePearsonCorrelation(x, y) {
+      if (!x || !y || x.length !== y.length || x.length === 0) {
+        return null;
+      }
+
+      const n = x.length;
+      const sumX = x.reduce((a, b) => a + b, 0);
+      const sumY = y.reduce((a, b) => a + b, 0);
+      const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+      const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
+      const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
+
+      const numerator = n * sumXY - sumX * sumY;
+      const denominator = Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+
+      if (denominator === 0) return null;
+
+      return numerator / denominator;
+    }
+
+    function calculateCorrelations(records) {
+      if (!records || records.length < 3) {
+        document.getElementById('timeSuccessCorrelation').textContent = 'N/A';
+        document.getElementById('practiceSuccessCorrelation').textContent = 'N/A';
+        document.getElementById('wordLengthSuccessCorrelation').textContent = 'N/A';
+        document.getElementById('timeProgressCorrelation').textContent = 'N/A';
+        return;
+      }
+
+      // 1. 読み時間 × 正答率
+      const timeSuccessData = records.filter(r => r.reading_time_seconds && r.reading_time_seconds > 0);
+      if (timeSuccessData.length >= 3) {
+        const times = timeSuccessData.map(r => r.reading_time_seconds);
+        const successes = timeSuccessData.map(r => r.could_read);
+        const corr = calculatePearsonCorrelation(times, successes);
+        document.getElementById('timeSuccessCorrelation').textContent = corr !== null ? corr.toFixed(3) : 'N/A';
+      } else {
+        document.getElementById('timeSuccessCorrelation').textContent = 'N/A';
+      }
+
+      // 2. 練習回数 × 正答率（単語ごと）
+      const wordPracticeCount = {};
+      const wordSuccessRate = {};
+
+      records.forEach(r => {
+        const wordId = r.word_id;
+        if (!wordPracticeCount[wordId]) {
+          wordPracticeCount[wordId] = 0;
+          wordSuccessRate[wordId] = { total: 0, success: 0 };
+        }
+        wordPracticeCount[wordId]++;
+        wordSuccessRate[wordId].total++;
+        if (r.could_read === 1) wordSuccessRate[wordId].success++;
+      });
+
+      const practiceData = Object.keys(wordPracticeCount)
+        .filter(wordId => wordPracticeCount[wordId] >= 2)
+        .map(wordId => ({
+          practice: wordPracticeCount[wordId],
+          rate: wordSuccessRate[wordId].success / wordSuccessRate[wordId].total
+        }));
+
+      if (practiceData.length >= 3) {
+        const practices = practiceData.map(d => d.practice);
+        const rates = practiceData.map(d => d.rate);
+        const corr = calculatePearsonCorrelation(practices, rates);
+        document.getElementById('practiceSuccessCorrelation').textContent = corr !== null ? corr.toFixed(3) : 'N/A';
+      } else {
+        document.getElementById('practiceSuccessCorrelation').textContent = 'N/A';
+      }
+
+      // 3. 単語長 × 正答率
+      const wordLengthData = records.map(r => ({
+        length: r.word_text ? r.word_text.length : 0,
+        success: r.could_read
+      })).filter(d => d.length > 0);
+
+      if (wordLengthData.length >= 3) {
+        const lengths = wordLengthData.map(d => d.length);
+        const successes = wordLengthData.map(d => d.success);
+        const corr = calculatePearsonCorrelation(lengths, successes);
+        document.getElementById('wordLengthSuccessCorrelation').textContent = corr !== null ? corr.toFixed(3) : 'N/A';
+      } else {
+        document.getElementById('wordLengthSuccessCorrelation').textContent = 'N/A';
+      }
+
+      // 4. テスト順序 × 読み時間（時系列進行）
+      const timeProgressData = records
+        .filter(r => r.reading_time_seconds && r.reading_time_seconds > 0)
+        .map((r, index) => ({
+          order: index + 1,
+          time: r.reading_time_seconds
+        }));
+
+      if (timeProgressData.length >= 3) {
+        const orders = timeProgressData.map(d => d.order);
+        const times = timeProgressData.map(d => d.time);
+        const corr = calculatePearsonCorrelation(orders, times);
+        document.getElementById('timeProgressCorrelation').textContent = corr !== null ? corr.toFixed(3) : 'N/A';
+      } else {
+        document.getElementById('timeProgressCorrelation').textContent = 'N/A';
+      }
     }
   </script>
 </body>
