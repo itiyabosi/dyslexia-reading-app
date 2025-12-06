@@ -51,18 +51,41 @@
       <strong style="margin-left: 20px;">単語リスト:</strong> <%= wordList.name %>
     </div>
 
-    <div class="form-group">
-      <label for="fontSelect">表示フォント</label>
-      <select id="fontSelect" style="font-size: 16px; padding: 8px; width: 100%; max-width: 400px;">
-        <% fonts.forEach((font, index) => { %>
-          <option value="<%= font.id %>" data-family="<%= font.font_family %>" style="font-family: <%= font.font_family %>;" <%= index === 0 ? 'selected' : '' %>>
-            <%= font.name %> (<%= font.font_type === 'webfont' ? 'Webフォント' : font.font_type === 'custom' ? 'カスタム' : 'システム' %>)
-          </option>
-        <% }); %>
-      </select>
-      <div id="fontPreview" style="margin-top: 10px; padding: 15px; background-color: #f0f0f0; border-radius: 5px; font-size: 24px; text-align: center; display: none;">
-        あいうえお ABC 123
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
+      <div class="form-group">
+        <label for="fontSelect">表示フォント</label>
+        <select id="fontSelect" style="font-size: 16px; padding: 8px; width: 100%;">
+          <% fonts.forEach((font, index) => { %>
+            <option value="<%= font.id %>" data-family="<%= font.font_family %>" style="font-family: <%= font.font_family %>;" <%= index === 0 ? 'selected' : '' %>>
+              <%= font.name %> (<%= font.font_type === 'webfont' ? 'Webフォント' : font.font_type === 'custom' ? 'カスタム' : 'システム' %>)
+            </option>
+          <% }); %>
+        </select>
       </div>
+
+      <div class="form-group">
+        <label for="bgColorSelect">背景色</label>
+        <select id="bgColorSelect" style="font-size: 16px; padding: 8px; width: 100%;">
+          <option value="#fff9e6" selected>クリーム（デフォルト）</option>
+          <option value="#ffffff">白</option>
+          <option value="#ffe6e6">淡いピンク</option>
+          <option value="#e6f3ff">淡いブルー</option>
+          <option value="#e6ffe6">淡いグリーン</option>
+          <option value="#fff0cc">淡いイエロー</option>
+          <option value="#f0f0f0">ライトグレー</option>
+          <option value="#ffe6f0">淡いローズ</option>
+          <option value="#e6f0ff">淡いスカイブルー</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="letterSpacing">文字間隔: <span id="letterSpacingValue">0</span>px</label>
+        <input type="range" id="letterSpacing" min="0" max="30" value="0" step="1" style="width: 100%;">
+      </div>
+    </div>
+
+    <div id="fontPreview" style="margin-top: 10px; padding: 15px; background-color: #f0f0f0; border-radius: 5px; font-size: 24px; text-align: center; display: none;">
+      あいうえお ABC 123
     </div>
 
     <div class="progress-info">
@@ -138,6 +161,8 @@
     let timerInterval = null;
     let currentReadingTime = 0;
     let selectedFontId = null;
+    let selectedBgColor = '#fff9e6';
+    let selectedLetterSpacing = 0;
 
     const wordDisplay = document.getElementById('wordDisplay');
     const timer = document.getElementById('timer');
@@ -148,6 +173,9 @@
     const completeArea = document.getElementById('completeArea');
     const currentIndexDisplay = document.getElementById('currentIndex');
     const fontSelect = document.getElementById('fontSelect');
+    const bgColorSelect = document.getElementById('bgColorSelect');
+    const letterSpacingSlider = document.getElementById('letterSpacing');
+    const letterSpacingValue = document.getElementById('letterSpacingValue');
 
     const fontPreview = document.getElementById('fontPreview');
 
@@ -163,6 +191,21 @@
 
       // プレビュー表示
       showFontPreview(fontFamily);
+    });
+
+    // 背景色の変更を反映
+    bgColorSelect.addEventListener('change', (e) => {
+      selectedBgColor = e.target.value;
+      console.log('[DEBUG] 背景色変更:', selectedBgColor);
+      applyBackgroundColor(selectedBgColor);
+    });
+
+    // 文字間隔の変更を反映
+    letterSpacingSlider.addEventListener('input', (e) => {
+      selectedLetterSpacing = parseInt(e.target.value);
+      letterSpacingValue.textContent = selectedLetterSpacing;
+      console.log('[DEBUG] 文字間隔変更:', selectedLetterSpacing + 'px');
+      applyLetterSpacing(selectedLetterSpacing);
     });
 
     // フォントを適用する関数
@@ -219,10 +262,26 @@
       }, 3000);
     }
 
+    // 背景色を適用する関数
+    function applyBackgroundColor(bgColor) {
+      wordDisplay.style.backgroundColor = bgColor;
+      console.log('[DEBUG] 背景色適用:', bgColor);
+    }
+
+    // 文字間隔を適用する関数
+    function applyLetterSpacing(spacing) {
+      wordDisplay.style.letterSpacing = spacing + 'px';
+      console.log('[DEBUG] 文字間隔適用:', spacing + 'px');
+    }
+
     // 初期フォント設定
     const initialOption = fontSelect.options[fontSelect.selectedIndex];
     selectedFontId = parseInt(fontSelect.value);
     applyFont(initialOption.getAttribute('data-family'));
+
+    // 初期背景色と文字間隔を適用
+    applyBackgroundColor(selectedBgColor);
+    applyLetterSpacing(selectedLetterSpacing);
 
     // ラジオボタンの変更を監視
     document.querySelectorAll('input[name="could_read"]').forEach(radio => {
