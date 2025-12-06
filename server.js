@@ -231,6 +231,32 @@ app.get('/api/word-lists-simple', async (req, res) => {
   }
 });
 
+// 単語リスト更新API
+app.put('/api/word-lists/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description } = req.body;
+
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ success: false, message: 'リスト名を入力してください' });
+    }
+
+    const result = await pool.query(
+      'UPDATE word_lists SET name = $1, description = $2 WHERE id = $3 RETURNING id, name, description',
+      [name.trim(), description || '', id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: '単語リストが見つかりません' });
+    }
+
+    res.json({ success: true, wordList: result.rows[0] });
+  } catch (error) {
+    console.error('単語リスト更新エラー:', error);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
+});
+
 // 単語追加API
 app.post('/api/words', async (req, res) => {
   try {

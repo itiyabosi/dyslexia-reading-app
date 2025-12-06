@@ -46,13 +46,30 @@
         <p>まだ単語リストがありません。</p>
       <% } else { %>
         <% wordLists.forEach(wl => { %>
-          <div class="list-item">
-            <div>
-              <strong><%= wl.name %></strong><br>
-              <small style="color: #666;"><%= wl.description || '' %></small>
+          <div class="list-item" id="list-item-<%= wl.id %>" style="display: block;">
+            <div style="flex: 1;">
+              <div id="view-<%= wl.id %>">
+                <strong><%= wl.name %></strong><br>
+                <small style="color: #666;"><%= wl.description || '' %></small>
+              </div>
+              <div id="edit-form-<%= wl.id %>" style="display: none;">
+                <div class="form-group" style="margin-bottom: 10px;">
+                  <label for="edit-name-<%= wl.id %>">リスト名 *</label>
+                  <input type="text" id="edit-name-<%= wl.id %>" value="<%= wl.name %>" required style="width: 100%; padding: 8px; border: 1px solid #d0d0d0; border-radius: 3px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 10px;">
+                  <label for="edit-description-<%= wl.id %>">説明</label>
+                  <textarea id="edit-description-<%= wl.id %>" rows="2" style="width: 100%; padding: 8px; border: 1px solid #d0d0d0; border-radius: 3px;"><%= wl.description || '' %></textarea>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                  <button onclick="saveWordList(<%= wl.id %>)" class="btn btn-primary">保存</button>
+                  <button onclick="cancelEdit(<%= wl.id %>)" class="btn btn-secondary">キャンセル</button>
+                </div>
+              </div>
             </div>
-            <div>
-              <a href="/word-lists/<%= wl.id %>" class="btn btn-primary">編集</a>
+            <div style="display: flex; gap: 10px;">
+              <button onclick="toggleEdit(<%= wl.id %>)" id="edit-btn-<%= wl.id %>" class="btn btn-secondary">名前・説明編集</button>
+              <a href="/word-lists/<%= wl.id %>" class="btn btn-primary">単語編集</a>
             </div>
           </div>
         <% }) %>
@@ -86,6 +103,59 @@
         location.reload();
       }
     });
+
+    function toggleEdit(id) {
+      const viewDiv = document.getElementById('view-' + id);
+      const editDiv = document.getElementById('edit-form-' + id);
+      const editBtn = document.getElementById('edit-btn-' + id);
+
+      if (editDiv.style.display === 'none') {
+        viewDiv.style.display = 'none';
+        editDiv.style.display = 'block';
+        editBtn.textContent = '編集中...';
+        editBtn.disabled = true;
+      } else {
+        viewDiv.style.display = 'block';
+        editDiv.style.display = 'none';
+        editBtn.textContent = '名前・説明編集';
+        editBtn.disabled = false;
+      }
+    }
+
+    function cancelEdit(id) {
+      const viewDiv = document.getElementById('view-' + id);
+      const editDiv = document.getElementById('edit-form-' + id);
+      const editBtn = document.getElementById('edit-btn-' + id);
+
+      viewDiv.style.display = 'block';
+      editDiv.style.display = 'none';
+      editBtn.textContent = '名前・説明編集';
+      editBtn.disabled = false;
+    }
+
+    async function saveWordList(id) {
+      const name = document.getElementById('edit-name-' + id).value;
+      const description = document.getElementById('edit-description-' + id).value;
+
+      if (!name || name.trim() === '') {
+        alert('リスト名を入力してください');
+        return;
+      }
+
+      const response = await fetch('/api/word-lists/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, description })
+      });
+
+      if (response.ok) {
+        alert('単語リストを更新しました');
+        location.reload();
+      } else {
+        const result = await response.json();
+        alert('エラー: ' + (result.message || '更新に失敗しました'));
+      }
+    }
 
     async function resetWordLists() {
       if (!confirm('本当にすべての単語リストを削除してリセットしますか？\n\nこの操作は取り消せません。')) {
