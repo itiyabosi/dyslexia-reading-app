@@ -420,6 +420,40 @@
           saveBtn.click();
         }
       }
+
+      // mキー: 「読めた」を選択して記録
+      if ((e.key === 'm' || e.key === 'M') && resultForm.style.display !== 'none') {
+        e.preventDefault();
+        console.log('[DEBUG] mキーで「読めた」を選択して保存');
+        // 「読めた」ラジオボタンを選択
+        const couldReadRadio = document.querySelector('input[name="could_read"][value="1"]');
+        if (couldReadRadio) {
+          couldReadRadio.checked = true;
+          couldReadRadio.dispatchEvent(new Event('change')); // changeイベントを発火
+        }
+        // 保存ボタンをクリック
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) {
+          saveBtn.click();
+        }
+      }
+
+      // xキー: 「読めなかった」を選択して記録
+      if ((e.key === 'x' || e.key === 'X') && resultForm.style.display !== 'none') {
+        e.preventDefault();
+        console.log('[DEBUG] xキーで「読めなかった」を選択して保存');
+        // 「読めなかった」ラジオボタンを選択
+        const couldNotReadRadio = document.querySelector('input[name="could_read"][value="0"]');
+        if (couldNotReadRadio) {
+          couldNotReadRadio.checked = true;
+          couldNotReadRadio.dispatchEvent(new Event('change')); // changeイベントを発火
+        }
+        // 保存ボタンをクリック
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) {
+          saveBtn.click();
+        }
+      }
     });
 
     // 初期表示
