@@ -80,7 +80,11 @@
 
       <div class="form-group">
         <label for="letterSpacing">文字間隔: <span id="letterSpacingValue">0</span>px</label>
-        <input type="range" id="letterSpacing" min="0" max="30" value="0" step="1" style="width: 100%;">
+        <input type="range" id="letterSpacing" min="-10" max="30" value="0" step="1" style="width: 100%;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #666; margin-top: 5px;">
+          <span>詰める（-10px）</span>
+          <span>広げる（+30px）</span>
+        </div>
       </div>
     </div>
 
