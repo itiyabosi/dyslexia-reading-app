@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>全体統合分析</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .print-btn {
+      background-color: #9C27B0;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px;
+    }
+    .print-btn:hover {
+      background-color: #7B1FA2;
+    }
+    @media print {
+      nav, .print-btn { display: none; }
+      .card { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📈 全体統合分析</h1>
+    <div style="position: absolute; top: 10px; right: 20px; font-size: 12px; color: rgba(255,255,255,0.7);">
+      <%= commitHash %>
+    </div>
+  </header>
+
+  <div class="container">
+    <nav>
+      <div class="nav-links">
+        <a href="/">ホーム</a>
+        <a href="/word-lists">単語リスト管理</a>
+        <a href="/analysis">個別児童分析</a>
+        <a href="/analysis-all">統合分析</a>
+        <a href="/fonts">フォント管理</a>
+      </div>
+      <a href="/logout" class="logout-btn">ログアウト</a>
+    </nav>
+
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0;">📊 全体統計</h2>
+        <div>
+          <button class="print-btn" onclick="window.print()">📄 印刷・PDF保存</button>
+          <button class="btn btn-success" onclick="exportAllToCSV()">📊 CSVエクスポート</button>
+        </div>
+      </div>
+
+      <div id="overallStatsContainer">
+        <p style="text-align: center; color: #666;">データを読み込んでいます...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allAnalysisData = null; // 統合分析データを保持
+
+    // 統合分析データの読み込みと表示
+    async function loadOverallAnalysis() {
+      try {
+        const response = await fetch('/api/analysis-all');
+        const data = await response.json();
+        allAnalysisData = data;
+
+        // 全体統計の表示
+        const overallStats = data.overallStats;
+        const successRate = overallStats.total_tests > 0
+          ? ((overallStats.successful_reads / overallStats.total_tests) * 100).toFixed(1)
+          : 0;
+
+        let html = '<div class="stats-grid">';
+        html += `<div class="stat-card"><h3>${overallStats.total_tests || 0}</h3><p>総テスト数</p></div>`;
+        html += `<div class="stat-card" style="background-color: #e8f5e9;"><h3 style="color: #388E3C;">${overallStats.successful_reads || 0}</h3><p>読めた回数</p></div>`;
+        html += `<div class="stat-card"><h3>${successRate}%</h3><p>全体成功率</p></div>`;
+        html += `<div class="stat-card" style="background-color: #fff3e0;"><h3 style="color: #F57C00;">${overallStats.avg_time ? overallStats.avg_time.toFixed(2) : '-'}</h3><p>平均読み時間（秒）</p></div>`;
+        html += `<div class="stat-card"><h3>${overallStats.total_children || 0}</h3><p>登録児童数</p></div>`;
+        html += `<div class="stat-card"><h3>${overallStats.test_days || 0}</h3><p>テスト実施日数</p></div>`;
+        html += '</div>';
+
+        // 児童別統計テーブル
+        html += '<div class="card" style="margin-top: 20px;"><h3>🧒 児童別統計</h3>';
+        if (data.childrenStats && data.childrenStats.length > 0) {
+          html += '<table><thead><tr><th>名前</th><th>学年</th><th>テスト数</th><th>成功数</th><th>成功率</th><th>平均時間（秒）</th><th>間違い数</th><th>初回テスト</th><th>最終テスト</th></tr></thead><tbody>';
+          data.childrenStats.forEach(child => {
+            const childSuccessRate = child.total_tests > 0 ? ((child.successful_reads / child.total_tests) * 100).toFixed(1) : 0;
+            const avgTime = child.avg_time ? parseFloat(child.avg_time).toFixed(2) : '-';
+            const firstTest = child.first_test_date ? new Date(child.first_test_date).toLocaleDateString('ja-JP') : '-';
+            const lastTest = child.last_test_date ? new Date(child.last_test_date).toLocaleDateString('ja-JP') : '-';
+            html += `<tr>`;
+            html += `<td>${child.name}</td>`;
+            html += `<td>${child.grade || '-'}</td>`;
+            html += `<td>${child.total_tests || 0}</td>`;
+            html += `<td>${child.successful_reads || 0}</td>`;
+            html += `<td>${childSuccessRate}%</td>`;
+            html += `<td>${avgTime}</td>`;
+            html += `<td>${child.misread_count || 0}</td>`;
+            html += `<td>${firstTest}</td>`;
+            html += `<td>${lastTest}</td>`;
+            html += `</tr>`;
+          });
+          html += '</tbody></table>';
+        } else {
+          html += '<p style="color: #666;">児童データがありません。</p>';
+        }
+        html += '</div>';
+
+        // 単語別統計テーブル
+        html += '<div class="card" style="margin-top: 20px;"><h3>📝 単語別統計</h3>';
+        if (data.wordStats && data.wordStats.length > 0) {
+          html += '<table><thead><tr><th>単語</th><th>単語リスト</th><th>テスト数</th><th>成功数</th><th>成功率</th><th>平均時間（秒）</th><th>間違い数</th></tr></thead><tbody>';
+          data.wordStats.forEach(word => {
+            const wordSuccessRate = word.total_tests > 0 ? ((word.successful_reads / word.total_tests) * 100).toFixed(1) : 0;
+            const avgTime = word.avg_time ? parseFloat(word.avg_time).toFixed(2) : '-';
+            html += `<tr>`;
+            html += `<td><strong>${word.word_text}</strong></td>`;
+            html += `<td>${word.word_list_name || '-'}</td>`;
+            html += `<td>${word.total_tests || 0}</td>`;
+            html += `<td>${word.successful_reads || 0}</td>`;
+            html += `<td>${wordSuccessRate}%</td>`;
+            html += `<td>${avgTime}</td>`;
+            html += `<td>${word.misread_count || 0}</td>`;
+            html += `</tr>`;
+          });
+          html += '</tbody></table>';
+        } else {
+          html += '<p style="color: #666;">単語データがありません。</p>';
+        }
+        html += '</div>';
+
+        // フォント別統計テーブル
+        html += '<div class="card" style="margin-top: 20px;"><h3>🔤 フォント別統計</h3>';
+        if (data.fontStats && data.fontStats.length > 0) {
+          html += '<table><thead><tr><th>フォント名</th><th>種類</th><th>テスト数</th><th>成功数</th><th>成功率</th><th>平均時間（秒）</th></tr></thead><tbody>';
+          data.fontStats.forEach(font => {
+            const fontSuccessRate = font.total_tests > 0 ? ((font.successful_reads / font.total_tests) * 100).toFixed(1) : 0;
+            const avgTime = font.avg_time ? parseFloat(font.avg_time).toFixed(2) : '-';
+            html += `<tr>`;
+            html += `<td>${font.font_name}</td>`;
+            html += `<td>${font.font_type}</td>`;
+            html += `<td>${font.total_tests || 0}</td>`;
+            html += `<td>${font.successful_reads || 0}</td>`;
+            html += `<td>${fontSuccessRate}%</td>`;
+            html += `<td>${avgTime}</td>`;
+            html += `</tr>`;
+          });
+          html += '</tbody></table>';
+        } else {
+          html += '<p style="color: #666;">フォントデータがありません。</p>';
+        }
+        html += '</div>';
+
+        // 日別テスト推移テーブル（過去30日）
+        if (data.dailyStats && data.dailyStats.length > 0) {
+          html += '<div class="card" style="margin-top: 20px;"><h3>📅 日別テスト推移（過去30日）</h3>';
+          html += '<table><thead><tr><th>日付</th><th>テスト数</th><th>成功数</th><th>成功率</th><th>平均時間（秒）</th></tr></thead><tbody>';
+          data.dailyStats.forEach(day => {
+            const dailySuccessRate = day.total_tests > 0 ? ((day.successful_reads / day.total_tests) * 100).toFixed(1) : 0;
+            const avgTime = day.avg_time ? parseFloat(day.avg_time).toFixed(2) : '-';
+            const testDate = new Date(day.test_date).toLocaleDateString('ja-JP');
+            html += `<tr>`;
+            html += `<td>${testDate}</td>`;
+            html += `<td>${day.total_tests || 0}</td>`;
+            html += `<td>${day.successful_reads || 0}</td>`;
+            html += `<td>${dailySuccessRate}%</td>`;
+            html += `<td>${avgTime}</td>`;
+            html += `</tr>`;
+          });
+          html += '</tbody></table></div>';
+        }
+
+        document.getElementById('overallStatsContainer').innerHTML = html;
+      } catch (error) {
+        console.error('統合分析データ読み込みエラー:', error);
+        document.getElementById('overallStatsContainer').innerHTML = '<p style="color: red;">データの読み込みに失敗しました。</p>';
+      }
+    }
+
+    // CSVエクスポート関数（統合データ）
+    function exportAllToCSV() {
+      if (!allAnalysisData) {
+        alert('エクスポートするデータがありません');
+        return;
+      }
+
+      const date = new Date().toISOString().split('T')[0];
+      let csv = '\uFEFF'; // BOM for Excel UTF-8 support
+
+      // 全体統計
+      const overallStats = allAnalysisData.overallStats;
+      const overallSuccessRate = overallStats.total_tests > 0 ? ((overallStats.successful_reads / overallStats.total_tests) * 100).toFixed(1) : 0;
+      csv += '=== 全体統計 ===\n';
+      csv += `総テスト数,${overallStats.total_tests || 0}\n`;
+      csv += `読めた回数,${overallStats.successful_reads || 0}\n`;
+      csv += `全体成功率(%),${overallSuccessRate}\n`;
+      csv += `平均読み時間(秒),${overallStats.avg_time ? overallStats.avg_time.toFixed(2) : '-'}\n`;
+      csv += `登録児童数,${overallStats.total_children || 0}\n`;
+      csv += `テスト実施日数,${overallStats.test_days || 0}\n`;
+
+      // 児童別統計
+      csv += '\n=== 児童別統計 ===\n';
+      csv += '名前,学年,テスト数,成功数,成功率(%),平均時間(秒),間違い数,初回テスト,最終テスト\n';
+      allAnalysisData.childrenStats.forEach(child => {
+        const successRate = child.total_tests > 0 ? ((child.successful_reads / child.total_tests) * 100).toFixed(1) : 0;
+        const avgTime = child.avg_time ? parseFloat(child.avg_time).toFixed(2) : '-';
+        const firstTest = child.first_test_date ? new Date(child.first_test_date).toLocaleDateString('ja-JP') : '-';
+        const lastTest = child.last_test_date ? new Date(child.last_test_date).toLocaleDateString('ja-JP') : '-';
+        csv += `${child.name},${child.grade || '-'},${child.total_tests || 0},${child.successful_reads || 0},${successRate},${avgTime},${child.misread_count || 0},${firstTest},${lastTest}\n`;
+      });
+
+      csv += '\n=== 単語別統計 ===\n';
+      csv += '単語,単語リスト,テスト数,成功数,成功率(%),平均時間(秒),間違い数\n';
+      allAnalysisData.wordStats.forEach(word => {
+        const successRate = word.total_tests > 0 ? ((word.successful_reads / word.total_tests) * 100).toFixed(1) : 0;
+        const avgTime = word.avg_time ? parseFloat(word.avg_time).toFixed(2) : '-';
+        csv += `${word.word_text},${word.word_list_name || '-'},${word.total_tests || 0},${word.successful_reads || 0},${successRate},${avgTime},${word.misread_count || 0}\n`;
+      });
+
+      csv += '\n=== フォント別統計 ===\n';
+      csv += 'フォント名,種類,テスト数,成功数,成功率(%),平均時間(秒)\n';
+      allAnalysisData.fontStats.forEach(font => {
+        const successRate = font.total_tests > 0 ? ((font.successful_reads / font.total_tests) * 100).toFixed(1) : 0;
+        const avgTime = font.avg_time ? parseFloat(font.avg_time).toFixed(2) : '-';
+        csv += `${font.font_name},${font.font_type},${font.total_tests || 0},${font.successful_reads || 0},${successRate},${avgTime}\n`;
+      });
+
+      if (allAnalysisData.dailyStats && allAnalysisData.dailyStats.length > 0) {
+        csv += '\n=== 日別テスト推移（過去30日） ===\n';
+        csv += '日付,テスト数,成功数,成功率(%),平均時間(秒)\n';
+        allAnalysisData.dailyStats.forEach(day => {
+          const successRate = day.total_tests > 0 ? ((day.successful_reads / day.total_tests) * 100).toFixed(1) : 0;
+          const avgTime = day.avg_time ? parseFloat(day.avg_time).toFixed(2) : '-';
+          const testDate = new Date(day.test_date).toLocaleDateString('ja-JP');
+          csv += `${testDate},${day.total_tests || 0},${day.successful_reads || 0},${successRate},${avgTime}\n`;
+        });
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `統合分析_${date}.csv`;
+      link.click();
+    }
+
+    // ページ読み込み時に統合分析データを読み込む
+    loadOverallAnalysis();
+  </script>
+</body>
+</html>

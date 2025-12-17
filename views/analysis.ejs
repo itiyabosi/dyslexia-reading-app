@@ -52,28 +52,15 @@
       <div class="nav-links">
           <a href="/">ホーム</a>
         <a href="/word-lists">単語リスト管理</a>
-        <a href="/analysis">データ分析</a>
+        <a href="/analysis">個別児童分析</a>
+        <a href="/analysis-all" target="_blank">統合分析 ↗</a>
         <a href="/fonts">フォント管理</a>
       </div>
         <a href="/logout" class="logout-btn">ログアウト</a>
     </nav>
 
-    <!-- 全体統合分析セクション -->
     <div class="card">
-      <h2>📈 全体統合分析</h2>
-      <div style="margin-bottom: 20px;">
-        <button class="btn btn-success" onclick="exportAllToCSV()">📊 統合データをCSVエクスポート</button>
-      </div>
-
-      <div id="overallStatsContainer">
-        <p style="text-align: center; color: #666;">データを読み込んでいます...</p>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>🧒 個別児童分析</h2>
-      <p style="color: #666; margin-bottom: 15px;">特定の児童の詳細データを確認する場合は下記から選択してください。</p>
-      <h3>児童を選択</h3>
+      <h2>児童を選択</h2>
       <% if (children.length === 0) { %>
         <p>児童が登録されていません。</p>
       <% } else { %>
@@ -266,170 +253,6 @@
     const childSelector = document.getElementById('childSelector');
     const statsArea = document.getElementById('statsArea');
     let charts = {}; // グラフオブジェクトを保持
-    let allAnalysisData = null; // 統合分析データを保持
-
-    // 統合分析データの読み込みと表示
-    async function loadOverallAnalysis() {
-      try {
-        const response = await fetch('/api/analysis-all');
-        const data = await response.json();
-        allAnalysisData = data;
-
-        // 全体統計の表示
-        const overallStats = data.overallStats;
-        const successRate = overallStats.total_tests > 0
-          ? ((overallStats.successful_reads / overallStats.total_tests) * 100).toFixed(1)
-          : 0;
-
-        let html = '<div class="stats-grid">';
-        html += `<div class="stat-card"><h3>${overallStats.total_tests || 0}</h3><p>総テスト数</p></div>`;
-        html += `<div class="stat-card" style="background-color: #e8f5e9;"><h3 style="color: #388E3C;">${overallStats.successful_reads || 0}</h3><p>読めた回数</p></div>`;
-        html += `<div class="stat-card"><h3>${successRate}%</h3><p>全体成功率</p></div>`;
-        html += `<div class="stat-card" style="background-color: #fff3e0;"><h3 style="color: #F57C00;">${overallStats.avg_time ? overallStats.avg_time.toFixed(2) : '-'}</h3><p>平均読み時間（秒）</p></div>`;
-        html += `<div class="stat-card"><h3>${overallStats.total_children || 0}</h3><p>登録児童数</p></div>`;
-        html += `<div class="stat-card"><h3>${overallStats.test_days || 0}</h3><p>テスト実施日数</p></div>`;
-        html += '</div>';
-
-        // 児童別統計テーブル
-        html += '<h3 style="margin-top: 30px;">児童別統計</h3>';
-        html += '<table><thead><tr><th>名前</th><th>学年</th><th>テスト数</th><th>成功数</th><th>成功率</th><th>平均時間（秒）</th><th>間違い数</th><th>初回テスト</th><th>最終テスト</th></tr></thead><tbody>';
-        data.childrenStats.forEach(child => {
-          const childSuccessRate = child.total_tests > 0 ? ((child.successful_reads / child.total_tests) * 100).toFixed(1) : 0;
-          const avgTime = child.avg_time ? parseFloat(child.avg_time).toFixed(2) : '-';
-          const firstTest = child.first_test_date ? new Date(child.first_test_date).toLocaleDateString('ja-JP') : '-';
-          const lastTest = child.last_test_date ? new Date(child.last_test_date).toLocaleDateString('ja-JP') : '-';
-          html += `<tr>`;
-          html += `<td>${child.name}</td>`;
-          html += `<td>${child.grade || '-'}</td>`;
-          html += `<td>${child.total_tests || 0}</td>`;
-          html += `<td>${child.successful_reads || 0}</td>`;
-          html += `<td>${childSuccessRate}%</td>`;
-          html += `<td>${avgTime}</td>`;
-          html += `<td>${child.misread_count || 0}</td>`;
-          html += `<td>${firstTest}</td>`;
-          html += `<td>${lastTest}</td>`;
-          html += `</tr>`;
-        });
-        html += '</tbody></table>';
-
-        // 単語別統計テーブル
-        html += '<h3 style="margin-top: 30px;">単語別統計</h3>';
-        html += '<table><thead><tr><th>単語</th><th>単語リスト</th><th>テスト数</th><th>成功数</th><th>成功率</th><th>平均時間（秒）</th><th>間違い数</th></tr></thead><tbody>';
-        data.wordStats.forEach(word => {
-          const wordSuccessRate = word.total_tests > 0 ? ((word.successful_reads / word.total_tests) * 100).toFixed(1) : 0;
-          const avgTime = word.avg_time ? parseFloat(word.avg_time).toFixed(2) : '-';
-          html += `<tr>`;
-          html += `<td><strong>${word.word_text}</strong></td>`;
-          html += `<td>${word.word_list_name || '-'}</td>`;
-          html += `<td>${word.total_tests || 0}</td>`;
-          html += `<td>${word.successful_reads || 0}</td>`;
-          html += `<td>${wordSuccessRate}%</td>`;
-          html += `<td>${avgTime}</td>`;
-          html += `<td>${word.misread_count || 0}</td>`;
-          html += `</tr>`;
-        });
-        html += '</tbody></table>';
-
-        // フォント別統計テーブル
-        html += '<h3 style="margin-top: 30px;">フォント別統計</h3>';
-        html += '<table><thead><tr><th>フォント名</th><th>種類</th><th>テスト数</th><th>成功数</th><th>成功率</th><th>平均時間（秒）</th></tr></thead><tbody>';
-        data.fontStats.forEach(font => {
-          const fontSuccessRate = font.total_tests > 0 ? ((font.successful_reads / font.total_tests) * 100).toFixed(1) : 0;
-          const avgTime = font.avg_time ? parseFloat(font.avg_time).toFixed(2) : '-';
-          html += `<tr>`;
-          html += `<td>${font.font_name}</td>`;
-          html += `<td>${font.font_type}</td>`;
-          html += `<td>${font.total_tests || 0}</td>`;
-          html += `<td>${font.successful_reads || 0}</td>`;
-          html += `<td>${fontSuccessRate}%</td>`;
-          html += `<td>${avgTime}</td>`;
-          html += `</tr>`;
-        });
-        html += '</tbody></table>';
-
-        // 日別テスト推移テーブル（過去30日）
-        if (data.dailyStats && data.dailyStats.length > 0) {
-          html += '<h3 style="margin-top: 30px;">日別テスト推移（過去30日）</h3>';
-          html += '<table><thead><tr><th>日付</th><th>テスト数</th><th>成功数</th><th>成功率</th><th>平均時間（秒）</th></tr></thead><tbody>';
-          data.dailyStats.forEach(day => {
-            const dailySuccessRate = day.total_tests > 0 ? ((day.successful_reads / day.total_tests) * 100).toFixed(1) : 0;
-            const avgTime = day.avg_time ? parseFloat(day.avg_time).toFixed(2) : '-';
-            const testDate = new Date(day.test_date).toLocaleDateString('ja-JP');
-            html += `<tr>`;
-            html += `<td>${testDate}</td>`;
-            html += `<td>${day.total_tests || 0}</td>`;
-            html += `<td>${day.successful_reads || 0}</td>`;
-            html += `<td>${dailySuccessRate}%</td>`;
-            html += `<td>${avgTime}</td>`;
-            html += `</tr>`;
-          });
-          html += '</tbody></table>';
-        }
-
-        document.getElementById('overallStatsContainer').innerHTML = html;
-      } catch (error) {
-        console.error('統合分析データ読み込みエラー:', error);
-        document.getElementById('overallStatsContainer').innerHTML = '<p style="color: red;">データの読み込みに失敗しました。</p>';
-      }
-    }
-
-    // CSVエクスポート関数（統合データ）
-    function exportAllToCSV() {
-      if (!allAnalysisData) {
-        alert('エクスポートするデータがありません');
-        return;
-      }
-
-      const date = new Date().toISOString().split('T')[0];
-      let csv = '\uFEFF'; // BOM for Excel UTF-8 support
-
-      // 児童別統計
-      csv += '=== 児童別統計 ===\n';
-      csv += '名前,学年,テスト数,成功数,成功率(%),平均時間(秒),間違い数,初回テスト,最終テスト\n';
-      allAnalysisData.childrenStats.forEach(child => {
-        const successRate = child.total_tests > 0 ? ((child.successful_reads / child.total_tests) * 100).toFixed(1) : 0;
-        const avgTime = child.avg_time ? parseFloat(child.avg_time).toFixed(2) : '-';
-        const firstTest = child.first_test_date ? new Date(child.first_test_date).toLocaleDateString('ja-JP') : '-';
-        const lastTest = child.last_test_date ? new Date(child.last_test_date).toLocaleDateString('ja-JP') : '-';
-        csv += `${child.name},${child.grade || '-'},${child.total_tests || 0},${child.successful_reads || 0},${successRate},${avgTime},${child.misread_count || 0},${firstTest},${lastTest}\n`;
-      });
-
-      csv += '\n=== 単語別統計 ===\n';
-      csv += '単語,単語リスト,テスト数,成功数,成功率(%),平均時間(秒),間違い数\n';
-      allAnalysisData.wordStats.forEach(word => {
-        const successRate = word.total_tests > 0 ? ((word.successful_reads / word.total_tests) * 100).toFixed(1) : 0;
-        const avgTime = word.avg_time ? parseFloat(word.avg_time).toFixed(2) : '-';
-        csv += `${word.word_text},${word.word_list_name || '-'},${word.total_tests || 0},${word.successful_reads || 0},${successRate},${avgTime},${word.misread_count || 0}\n`;
-      });
-
-      csv += '\n=== フォント別統計 ===\n';
-      csv += 'フォント名,種類,テスト数,成功数,成功率(%),平均時間(秒)\n';
-      allAnalysisData.fontStats.forEach(font => {
-        const successRate = font.total_tests > 0 ? ((font.successful_reads / font.total_tests) * 100).toFixed(1) : 0;
-        const avgTime = font.avg_time ? parseFloat(font.avg_time).toFixed(2) : '-';
-        csv += `${font.font_name},${font.font_type},${font.total_tests || 0},${font.successful_reads || 0},${successRate},${avgTime}\n`;
-      });
-
-      if (allAnalysisData.dailyStats && allAnalysisData.dailyStats.length > 0) {
-        csv += '\n=== 日別テスト推移（過去30日） ===\n';
-        csv += '日付,テスト数,成功数,成功率(%),平均時間(秒)\n';
-        allAnalysisData.dailyStats.forEach(day => {
-          const successRate = day.total_tests > 0 ? ((day.successful_reads / day.total_tests) * 100).toFixed(1) : 0;
-          const avgTime = day.avg_time ? parseFloat(day.avg_time).toFixed(2) : '-';
-          const testDate = new Date(day.test_date).toLocaleDateString('ja-JP');
-          csv += `${testDate},${day.total_tests || 0},${day.successful_reads || 0},${successRate},${avgTime}\n`;
-        });
-      }
-
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `統合分析_${date}.csv`;
-      link.click();
-    }
-
-    // ページ読み込み時に統合分析データを読み込む
-    loadOverallAnalysis();
 
     childSelector.addEventListener('change', async (e) => {
       const childId = e.target.value;

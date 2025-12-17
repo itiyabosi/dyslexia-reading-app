@@ -631,6 +631,11 @@ app.get('/analysis', async (req, res) => {
   }
 });
 
+// 統合分析画面
+app.get('/analysis-all', (req, res) => {
+  res.render('analysis-all', { commitHash: COMMIT_HASH });
+});
+
 // 児童別の成績データ取得API
 app.get('/api/analysis/:childId', async (req, res) => {
   try {
