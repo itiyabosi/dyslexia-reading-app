@@ -679,6 +679,101 @@ app.get('/api/analysis/:childId', async (req, res) => {
   }
 });
 
+// 全児童統合分析データ取得API
+app.get('/api/analysis-all', async (req, res) => {
+  try {
+    // 全体統計
+    const overallStatsResult = await pool.query(`
+      SELECT
+        COUNT(*) as total_tests,
+        SUM(CASE WHEN could_read = 1 THEN 1 ELSE 0 END) as successful_reads,
+        AVG(reading_time_seconds) as avg_time,
+        COUNT(CASE WHEN misread_as IS NOT NULL AND misread_as != '' THEN 1 END) as misread_count,
+        COUNT(DISTINCT child_id) as total_children,
+        COUNT(DISTINCT DATE(test_date)) as test_days
+      FROM reading_records
+    `);
+
+    // 児童別統計
+    const childrenStatsResult = await pool.query(`
+      SELECT
+        c.id,
+        c.name,
+        c.grade,
+        c.birth_year,
+        c.birth_month,
+        COUNT(rr.id) as total_tests,
+        SUM(CASE WHEN rr.could_read = 1 THEN 1 ELSE 0 END) as successful_reads,
+        AVG(rr.reading_time_seconds) as avg_time,
+        COUNT(CASE WHEN rr.misread_as IS NOT NULL AND rr.misread_as != '' THEN 1 END) as misread_count,
+        MIN(rr.test_date) as first_test_date,
+        MAX(rr.test_date) as last_test_date
+      FROM children c
+      LEFT JOIN reading_records rr ON c.id = rr.child_id
+      GROUP BY c.id, c.name, c.grade, c.birth_year, c.birth_month
+      ORDER BY c.name
+    `);
+
+    // 単語別統計
+    const wordStatsResult = await pool.query(`
+      SELECT
+        w.id,
+        w.word_text,
+        wl.name as word_list_name,
+        COUNT(rr.id) as total_tests,
+        SUM(CASE WHEN rr.could_read = 1 THEN 1 ELSE 0 END) as successful_reads,
+        AVG(rr.reading_time_seconds) as avg_time,
+        COUNT(CASE WHEN rr.misread_as IS NOT NULL AND rr.misread_as != '' THEN 1 END) as misread_count
+      FROM words w
+      LEFT JOIN word_lists wl ON w.word_list_id = wl.id
+      LEFT JOIN reading_records rr ON w.id = rr.word_id
+      GROUP BY w.id, w.word_text, wl.name
+      ORDER BY wl.name, w.display_order
+    `);
+
+    // フォント別統計
+    const fontStatsResult = await pool.query(`
+      SELECT
+        f.id,
+        f.name as font_name,
+        f.font_type,
+        COUNT(rr.id) as total_tests,
+        SUM(CASE WHEN rr.could_read = 1 THEN 1 ELSE 0 END) as successful_reads,
+        AVG(rr.reading_time_seconds) as avg_time
+      FROM fonts f
+      LEFT JOIN reading_records rr ON f.id = rr.font_id
+      WHERE f.is_active = 1
+      GROUP BY f.id, f.name, f.font_type
+      ORDER BY f.name
+    `);
+
+    // 日別テスト数推移（過去30日）
+    const dailyStatsResult = await pool.query(`
+      SELECT
+        DATE(test_date) as test_date,
+        COUNT(*) as total_tests,
+        SUM(CASE WHEN could_read = 1 THEN 1 ELSE 0 END) as successful_reads,
+        AVG(reading_time_seconds) as avg_time
+      FROM reading_records
+      WHERE test_date >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY DATE(test_date)
+      ORDER BY test_date DESC
+    `);
+
+    res.json({
+      overallStats: overallStatsResult.rows[0],
+      childrenStats: childrenStatsResult.rows,
+      wordStats: wordStatsResult.rows,
+      fontStats: fontStatsResult.rows,
+      dailyStats: dailyStatsResult.rows
+    });
+  } catch (error) {
+    console.error('統合分析データ取得エラー:', error);
+    console.error('エラー詳細:', error.message);
+    res.status(500).json({ success: false, message: 'エラーが発生しました' });
+  }
+});
+
 // ======== 管理機能 ========
 
 // 単語リストリセットAPI（パスワード保護）
