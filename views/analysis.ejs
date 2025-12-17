@@ -147,6 +147,12 @@
       </div>
 
       <div class="card">
+        <h2>📅 日別・単語リスト別 進捗状況</h2>
+        <p style="color: #666; margin-bottom: 15px;">各単語リストの日毎の正答率と累計時間を表示します</p>
+        <div id="dailyWordListStatsTable"></div>
+      </div>
+
+      <div class="card">
         <h2>📈 相関分析</h2>
         <p style="color: #666; margin-bottom: 15px;">各要素間の相関係数（-1から1の範囲、1に近いほど正の相関が強い）</p>
         <div class="stats-grid">
@@ -317,6 +323,9 @@
 
       // 相関係数の計算
       calculateCorrelations(data.records);
+
+      // 日別・単語リスト別統計テーブル
+      drawDailyWordListStatsTable(data.dailyWordListStats);
 
       // グラフ描画
       drawCharts(data);
@@ -489,6 +498,52 @@
           }
         }
       });
+    }
+
+    function drawDailyWordListStatsTable(dailyStats) {
+      if (!dailyStats || dailyStats.length === 0) {
+        document.getElementById('dailyWordListStatsTable').innerHTML = '<p style="color: #666;">データがありません。</p>';
+        return;
+      }
+
+      let html = '<table>';
+      html += '<thead><tr>';
+      html += '<th>日付</th>';
+      html += '<th>単語リスト</th>';
+      html += '<th>テスト数</th>';
+      html += '<th>成功数</th>';
+      html += '<th>正答率</th>';
+      html += '<th>累計時間（秒）</th>';
+      html += '<th>平均時間（秒）</th>';
+      html += '</tr></thead>';
+      html += '<tbody>';
+
+      dailyStats.forEach(stat => {
+        const successRate = stat.total_tests > 0
+          ? ((stat.successful_reads / stat.total_tests) * 100).toFixed(1)
+          : 0;
+        const avgTime = stat.total_time && stat.total_tests > 0
+          ? (stat.total_time / stat.total_tests).toFixed(2)
+          : '-';
+        const totalTime = stat.total_time ? stat.total_time.toFixed(2) : '-';
+        const testDate = new Date(stat.test_date).toLocaleDateString('ja-JP');
+
+        // 正答率が低い場合は背景色を変える
+        const rowStyle = successRate < 50 ? 'background-color: #ffebee;' : '';
+
+        html += `<tr style="${rowStyle}">`;
+        html += `<td>${testDate}</td>`;
+        html += `<td><strong>${stat.word_list_name}</strong></td>`;
+        html += `<td>${stat.total_tests}</td>`;
+        html += `<td>${stat.successful_reads}</td>`;
+        html += `<td><strong>${successRate}%</strong></td>`;
+        html += `<td>${totalTime}</td>`;
+        html += `<td>${avgTime}</td>`;
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      document.getElementById('dailyWordListStatsTable').innerHTML = html;
     }
 
     function drawRecordsTable(records) {

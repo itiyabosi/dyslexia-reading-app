@@ -672,9 +672,27 @@ app.get('/api/analysis/:childId', async (req, res) => {
       [req.params.childId]
     );
 
+    // 日別・単語リスト別の統計
+    const dailyWordListStatsResult = await pool.query(
+      `SELECT
+        DATE(rr.test_date) as test_date,
+        wl.name as word_list_name,
+        COUNT(*) as total_tests,
+        SUM(CASE WHEN rr.could_read = 1 THEN 1 ELSE 0 END) as successful_reads,
+        SUM(rr.reading_time_seconds) as total_time
+      FROM reading_records rr
+      JOIN words w ON rr.word_id = w.id
+      JOIN word_lists wl ON w.word_list_id = wl.id
+      WHERE rr.child_id = $1
+      GROUP BY DATE(rr.test_date), wl.name
+      ORDER BY DATE(rr.test_date) DESC, wl.name`,
+      [req.params.childId]
+    );
+
     res.json({
       records: recordsResult.rows,
-      stats: statsResult.rows[0]
+      stats: statsResult.rows[0],
+      dailyWordListStats: dailyWordListStatsResult.rows
     });
   } catch (error) {
     console.error('分析データ取得エラー:', error);
